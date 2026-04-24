@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compare Cars - German Car Reliability</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav>
+        <div class="nav-inner">
+            <a href="/" class="logo">german car reliability</a>
+            <div class="nav-links">
+                <a href="/">Search</a>
+                <a href="/static/compare.html" class="active">Compare</a>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        <section class="hero">
+            <h1>Compare side by side.</h1>
+            <p class="subtitle">Same database. Same methodology. No bias.</p>
+        </section>
+
+        <section class="search-section">
+            <div class="search-box">
+                <h3 class="car-label">Car 1</h3>
+                <div class="search-row">
+                    <div class="field">
+                        <label for="make1">Make</label>
+                        <select id="make1" onchange="loadModelsFor(1)">
+                            <option value="">Select make</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="model1">Model</label>
+                        <select id="model1" onchange="loadYearsFor(1)" disabled>
+                            <option value="">Select model</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="year1">Year</label>
+                        <select id="year1" disabled>
+                            <option value="">Select year</option>
+                        </select>
+                    </div>
+                </div>
+
+                <h3 class="car-label">Car 2</h3>
+                <div class="search-row">
+                    <div class="field">
+                        <label for="make2">Make</label>
+                        <select id="make2" onchange="loadModelsFor(2)">
+                            <option value="">Select make</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="model2">Model</label>
+                        <select id="model2" onchange="loadYearsFor(2)" disabled>
+                            <option value="">Select model</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="year2">Year</label>
+                        <select id="year2" disabled>
+                            <option value="">Select year</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button id="compare-btn" onclick="compareCars()" disabled>Compare</button>
+            </div>
+        </section>
+
+        <section id="compare-results" class="results hidden">
+            <!-- Filled by JavaScript -->
+        </section>
+    </main>
+
+    <footer>
+        <p>Data from <a href="https://www.nhtsa.gov" target="_blank">NHTSA</a> (National Highway Traffic Safety Administration). Public domain, updated daily.</p>
+    </footer>
+
+    <script src="/static/app.js"></script>
+    <script>
+        // Load makes for both dropdowns on page load
+        window.addEventListener("DOMContentLoaded", async () => {
+            const res = await fetch("/api/makes");
+            const makes = await res.json();
+            [1, 2].forEach(n => {
+                const sel = document.getElementById("make" + n);
+                makes.forEach(m => {
+                    const opt = document.createElement("option");
+                    opt.value = m;
+                    opt.textContent = m;
+                    sel.appendChild(opt);
+                });
+            });
+        });
+
+        async function loadModelsFor(n) {
+            const make = document.getElementById("make" + n).value;
+            const modelSel = document.getElementById("model" + n);
+            const yearSel = document.getElementById("year" + n);
+            modelSel.innerHTML = '<option value="">Select model</option>';
+            yearSel.innerHTML = '<option value="">Select year</option>';
+            yearSel.disabled = true;
+
+            if (!make) { modelSel.disabled = true; return; }
+
+            const res = await fetch("/api/models/" + make);
+            const models = await res.json();
+            models.forEach(m => {
+                const opt = document.createElement("option");
+                opt.value = m;
+                opt.textContent = m;
+                modelSel.appendChild(opt);
+            });
+            modelSel.disabled = false;
+            checkCompareReady();
+        }
+
+        async function loadYearsFor(n) {
+            const make = document.getElementById("make" + n).value;
+            const model = document.getElementById("model" + n).value;
+            const yearSel = document.getElementById("year" + n);
+            yearSel.innerHTML = '<option value="">Select year</option>';
+
+            if (!model) { yearSel.disabled = true; return; }
+
+            const res = await fetch("/api/years/" + make + "/" + model);
+            const years = await res.json();
+            years.forEach(y => {
+                const opt = document.createElement("option");
+                opt.value = y;
+                opt.textContent = y;
+                yearSel.appendChild(opt);
+            });
+            yearSel.disabled = false;
+            yearSel.onchange = checkCompareReady;
+            checkCompareReady();
+        }
+
+        function checkCompareReady() {
+            const ready = document.getElementById("year1").value
+                       && document.getElementById("year2").value;
+            document.getElementById("compare-btn").disabled = !ready;
+        }
+
+        async function compareCars() {
+            const car1 = `${document.getElementById("make1").value}/${document.getElementById("model1").value}/${document.getElementById("year1").value}`;
+            const car2 = `${document.getElementById("make2").value}/${document.getElementById("model2").value}/${document.getElementById("year2").value}`;
+
+            const res = await fetch(`/api/compare?cars=${car1},${car2}`);
+            const data = await res.json();
+
+            const container = document.getElementById("compare-results");
+            container.classList.remove("hidden");
+            container.innerHTML = "";
+
+            const grid = document.createElement("div");
+            grid.className = "compare-grid";
+
+            data.forEach(car => {
+                grid.innerHTML += renderCarCard(car);
+            });
+
+            container.appendChild(grid);
+            container.scrollIntoView({ behavior: "smooth" });
+        }
+    </script>
+</body>
+</html>
