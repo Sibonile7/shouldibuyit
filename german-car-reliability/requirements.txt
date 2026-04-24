@@ -1,0 +1,10 @@
+# Phase 1: Data pipeline (fetcher uses only Python built-ins)
+# No external packages needed for ingestion.
+# sqlite3 and urllib are part of the Python standard library.
+
+# Phase 2: Backend API
+fastapi==0.115.0
+uvicorn==0.30.0
+
+# Phase 2: Reddit integration (uncomment when ready)
+# praw==7.7.1
