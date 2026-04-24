@@ -1,4 +1,4 @@
-# german-car-reliability
+# shouldibuyit
 
 Reliability intelligence for German cars. A Python pipeline that aggregates government safety complaint data, classifies failure patterns by component and severity, and serves the results through a FastAPI dashboard.
 
