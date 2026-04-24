@@ -1,16 +1,26 @@
-# shouldibuyit
+# german-car-reliability
 
 Reliability intelligence for German cars. A Python pipeline that aggregates government safety complaint data, classifies failure patterns by component and severity, and serves the results through a FastAPI dashboard.
 
 ## The problem
 
-Every day, thousands of people ask Reddit the same question: should I buy this car?
+Car buyers currently have two options for researching reliability, and both are broken.
 
-They get back opinions from strangers with sample sizes of one. "BMWs are money pits." "Mercedes electrical systems are garbage." "Get a Toyota instead." No complaint counts. No failure timelines. No severity data. No sources. Just vibes.
+**Option 1: Reddit and forums.** Thousands of people ask Reddit every week: should I buy this car? They get back opinions from strangers with sample sizes of one. "BMWs are money pits." "Mercedes electrical systems are garbage." "Get a Toyota instead." No complaint counts. No failure timelines. No severity data. No sources. Just vibes. I reviewed dozens of Reddit car-buying threads and found a consistent pattern: people are making $30,000 to $50,000 purchase decisions based on one-sentence replies with zero data. The thread template even asks respondents to provide "facts and sources." Almost nobody does.
 
-Meanwhile, the U.S. government maintains a public database of owner-reported vehicle complaints going back to 1949, updated daily, with structured fields for component category, crash and fire flags, injury counts, and free-text summaries describing exactly what went wrong. This data is free, requires no API key, and covers every car sold in the United States, including Mercedes-Benz, BMW, Audi, Volkswagen, and Porsche.
+**Option 2: Ask ChatGPT.** An LLM will give you a reasonable-sounding answer about common problems with a 2014 Mercedes C-Class. But that answer has four gaps that matter for a real purchase decision:
 
-shouldibuyit bridges that gap. Instead of scrolling through Reddit threads for hours, a buyer types in a make, model, and year, and gets back a ranked list of the most common problems based on thousands of real owner complaints, not a handful of forum posts.
+1. It cannot tell you how many people reported each issue. "Transmission problems are common" could mean 12 Reddit posts or 3,000 government complaints. Those are wildly different reliability signals, but the LLM answer sounds the same for both.
+
+2. It might be wrong and you have no way to verify. LLMs hallucinate. If it tells you a specific model year has a known camshaft issue, is that actually true for the 2014 model, or is it confusing it with the 2012? There is no source link, no complaint count, no way to check.
+
+3. Its answer flattens severity. It treats a problem reported by 5 people the same as one reported by 5,000. It cannot rank issues by frequency because it is generating language, not querying a database.
+
+4. It cannot do structured comparison. Asking "should I buy a 2014 C-Class or a 2014 3-Series" produces a conversational answer based on general reputation, not a side-by-side table of complaint counts by component pulled from the same data source.
+
+**What actually exists but nobody uses:** The U.S. government maintains a public database of owner-reported vehicle complaints going back to 1949, updated daily, with structured fields for component category, crash and fire flags, injury counts, and free-text summaries describing exactly what went wrong. This data is free, requires no API key, and covers every car sold in the United States, including Mercedes-Benz, BMW, Audi, Volkswagen, and Porsche. It is the ground truth that neither Reddit opinions nor LLM answers are built on.
+
+**This project bridges all three gaps.** A buyer types in a make, model, and year, and gets back a ranked list of the most common problems based on thousands of real owner complaints. Every number is verifiable. Every complaint links back to a real government record. Comparisons are structured and data-driven, not conversational. The output is evidence, not an opinion.
 
 ## What it does
 
