@@ -374,11 +374,430 @@ footer {
     text-align: center;
 }
 
+/* === RESET & BASE === */
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg: #fafaf7;
+    --bg-card: #ffffff;
+    --bg-input: #ffffff;
+    --border: #e5e3dc;
+    --border-strong: #1a1a1a;
+    --text: #1a1a1a;
+    --text-dim: #6b6b66;
+    --accent: #8b6914;
+    --accent-hover: #6b5010;
+    --red: #a83232;
+    --orange: #b86420;
+    --green: #4a7a3a;
+    --bar-bg: #f0eee7;
+    --radius: 4px;
+}
+
+body {
+    font-family: "DM Sans", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+a {
+    color: var(--text);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+}
+a:hover {
+    color: var(--accent);
+}
+
+/* === NAV === */
+nav {
+    border-bottom: 1px solid var(--border-strong);
+    padding: 0 24px;
+    background: var(--bg);
+}
+.nav-inner {
+    max-width: 960px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+}
+.logo {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    letter-spacing: 0;
+    text-decoration: none;
+    text-transform: lowercase;
+}
+.nav-links {
+    display: flex;
+    gap: 28px;
+}
+.nav-links a {
+    font-size: 13px;
+    color: var(--text-dim);
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 500;
+    padding-bottom: 4px;
+    border-bottom: 2px solid transparent;
+    transition: color 0.2s, border-color 0.2s;
+}
+.nav-links a:hover,
+.nav-links a.active {
+    color: var(--text);
+    border-bottom-color: var(--text);
+}
+
+/* === LAYOUT === */
+main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+}
+
+/* === HERO === */
+.hero {
+    padding: 72px 0 48px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 48px;
+}
+.hero h1 {
+    font-size: 44px;
+    font-weight: 700;
+    letter-spacing: -1.5px;
+    line-height: 1.05;
+    margin-bottom: 16px;
+    max-width: 720px;
+}
+.subtitle {
+    color: var(--text-dim);
+    font-size: 17px;
+    max-width: 600px;
+}
+
+/* === SEARCH === */
+.search-section {
+    margin-bottom: 48px;
+}
+.search-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+}
+.search-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+.field {
+    flex: 1;
+    min-width: 140px;
+}
+.field label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+.car-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+    margin-top: 24px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+.car-label:first-child {
+    margin-top: 0;
+}
+
+select, input {
+    width: 100%;
+    padding: 11px 14px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: "DM Sans", sans-serif;
+    font-size: 14px;
+    appearance: none;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='none' stroke='%231a1a1a' stroke-width='1.5' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+}
+select:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+select:focus, input:focus {
+    outline: none;
+    border-color: var(--text);
+}
+
+button {
+    padding: 11px 28px;
+    background: var(--text);
+    color: var(--bg);
+    border: 1px solid var(--text);
+    border-radius: var(--radius);
+    font-family: "DM Sans", sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+button:hover:not(:disabled) {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+button:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* === RESULTS === */
+.results {
+    margin-bottom: 48px;
+}
+.hidden {
+    display: none;
+}
+
+/* === CAR CARD === */
+.car-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+    margin-bottom: 24px;
+}
+.car-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.car-name {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+.car-total {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+    color: var(--text-dim);
+}
+.car-total strong {
+    color: var(--text);
+    font-size: 22px;
+    font-weight: 700;
+}
+
+/* === SEVERITY BADGES === */
+.severity-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+}
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 12px;
+    border-radius: 2px;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+.badge-crash {
+    background: #fdf2f2;
+    color: var(--red);
+    border: 1px solid #f0d4d4;
+}
+.badge-fire {
+    background: #fdf6ef;
+    color: var(--orange);
+    border: 1px solid #f0dac0;
+}
+.badge-injury {
+    background: #faf6e8;
+    color: var(--accent);
+    border: 1px solid #ebe3c2;
+}
+
+/* === ISSUE BARS === */
+.issues-title {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 18px;
+}
+.issue-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+    gap: 16px;
+}
+.issue-name {
+    width: 140px;
+    font-size: 13px;
+    color: var(--text);
+    text-align: right;
+    flex-shrink: 0;
+    font-weight: 500;
+}
+.issue-bar-track {
+    flex: 1;
+    height: 22px;
+    background: var(--bar-bg);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+}
+.issue-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.6s ease;
+    min-width: 2px;
+}
+.issue-count {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+    width: 40px;
+    flex-shrink: 0;
+    color: var(--text);
+    font-weight: 500;
+}
+
+/* Bar colors by rank */
+.bar-1 { background: var(--red); }
+.bar-2 { background: var(--orange); }
+.bar-3 { background: var(--accent); }
+.bar-4, .bar-5, .bar-6, .bar-7, .bar-8, .bar-9, .bar-10 {
+    background: #b8b6ad;
+}
+
+/* === SAMPLE COMPLAINTS === */
+.samples-title {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-top: 36px;
+    margin-bottom: 18px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+}
+.sample {
+    border-left: 2px solid var(--border);
+    padding: 10px 0 10px 18px;
+    margin-bottom: 14px;
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--text);
+}
+.sample-meta {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+}
+.sample-tag {
+    padding: 2px 8px;
+    background: var(--bg);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.sample-crash {
+    padding: 2px 8px;
+    background: #fdf2f2;
+    color: var(--red);
+    border: 1px solid #f0d4d4;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+}
+
+/* === COMPARE GRID === */
+.compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+/* === STATS === */
+.stats-section {
+    margin-top: 32px;
+    border-top: 1px solid var(--border);
+    padding-top: 32px;
+}
+#stats {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-family: "JetBrains Mono", monospace;
+    text-align: center;
+    letter-spacing: 1px;
+}
+
+/* === FOOTER === */
+footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 32px 24px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-dim);
+    text-align: center;
+}
+footer a {
+    color: var(--text-dim);
+}
+
 /* === LOADING === */
 .loading {
     text-align: center;
     padding: 40px;
     color: var(--text-dim);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
 }
 
 /* === RESPONSIVE === */
@@ -390,7 +809,7 @@ footer {
         grid-template-columns: 1fr;
     }
     .hero h1 {
-        font-size: 24px;
+        font-size: 32px;
     }
     .issue-name {
         width: 100px;
