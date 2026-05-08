@@ -35,7 +35,6 @@ COMPONENT_CLEANUP = {
 
 def get_db_path():
     """Find the database relative to the project root."""
-    # Works whether called from project root or backend/
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(script_dir)
     return os.path.join(project_root, "data", "cars.db")
@@ -55,14 +54,26 @@ def clean_component(raw):
     return COMPONENT_CLEANUP.get(raw, raw)
 
 
+def row_matches_component(raw_component, target_component):
+    """
+    Check if a complaint's raw component string matches a clean target.
+
+    NHTSA stores "ENGINE AND ENGINE COOLING,ELECTRICAL SYSTEM" as one
+    field. If the user clicks "ELECTRICAL SYSTEM" we need to match that
+    even though it's mixed with engine in the raw string.
+    """
+    if not raw_component:
+        return target_component == "OTHER"
+    parts = raw_component.split(",")
+    for part in parts:
+        if clean_component(part) == target_component:
+            return True
+    return False
+
+
 def split_and_count_components(rows):
     """
     Take raw complaint rows and split multi-component fields.
-
-    NHTSA stores "ENGINE AND ENGINE COOLING,ELECTRICAL SYSTEM"
-    as one string. We split on comma and count each part
-    separately.
-
     Returns a sorted list of (component, count) tuples.
     """
     counts = {}
@@ -77,16 +88,10 @@ def split_and_count_components(rows):
 
 
 def get_car_summary(make, model, year):
-    """
-    Get complaint summary for a specific car.
-
-    Returns:
-        dict with total_complaints, top_issues, severity, and sample_complaints
-    """
+    """Get complaint summary for a specific car."""
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Get all complaints for this car
     cursor.execute("""
         SELECT component, summary, crash, fire, num_injuries, num_deaths,
                date_incident, date_filed
@@ -101,16 +106,13 @@ def get_car_summary(make, model, year):
         conn.close()
         return None
 
-    # Count components (with normalization)
     top_issues = split_and_count_components(rows)
 
-    # Severity counts
     crashes = sum(1 for r in rows if r["crash"])
     fires = sum(1 for r in rows if r["fire"])
     injuries = sum(r["num_injuries"] for r in rows)
     deaths = sum(r["num_deaths"] for r in rows)
 
-    # Get 5 most recent complaint summaries as samples
     cursor.execute("""
         SELECT summary, component, crash, fire, date_filed
         FROM complaints
@@ -150,16 +152,63 @@ def get_car_summary(make, model, year):
     }
 
 
+def get_complaints_by_component(make, model, year, component, limit=20, offset=0):
+    """
+    Get all complaints for a car, filtered by a clean component name.
+
+    Used when user clicks a bar in the dashboard to see complaints
+    for that specific component (e.g. only ENGINE complaints).
+
+    Returns dict with complaints list, total matching, and pagination info.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT odi_number, component, summary, crash, fire,
+               num_injuries, num_deaths, date_filed
+        FROM complaints
+        WHERE make = ? AND model = ? AND model_year = ?
+        ORDER BY date_filed DESC
+    """, (make.upper(), model.upper(), int(year)))
+
+    all_rows = cursor.fetchall()
+    conn.close()
+
+    # Filter by component (in Python, since NHTSA strings are messy)
+    matching = [
+        row for row in all_rows
+        if row_matches_component(row["component"], component.upper())
+    ]
+
+    total_matching = len(matching)
+    page = matching[offset:offset + limit]
+
+    complaints = []
+    for row in page:
+        complaints.append({
+            "odi_number": row["odi_number"],
+            "summary": row["summary"],
+            "component": row["component"],
+            "crash": bool(row["crash"]),
+            "fire": bool(row["fire"]),
+            "injuries": row["num_injuries"],
+            "deaths": row["num_deaths"],
+            "date_filed": row["date_filed"],
+        })
+
+    return {
+        "component": component.upper(),
+        "total_matching": total_matching,
+        "offset": offset,
+        "limit": limit,
+        "has_more": (offset + limit) < total_matching,
+        "complaints": complaints,
+    }
+
+
 def get_comparison(cars):
-    """
-    Compare multiple cars side by side.
-
-    Args:
-        cars: list of (make, model, year) tuples
-
-    Returns:
-        list of car summaries
-    """
+    """Compare multiple cars side by side."""
     results = []
     for make, model, year in cars:
         summary = get_car_summary(make, model, year)
@@ -172,9 +221,7 @@ def get_available_makes():
     """List all makes in the database."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("""
-        SELECT DISTINCT make FROM complaints ORDER BY make
-    """)
+    cursor.execute("SELECT DISTINCT make FROM complaints ORDER BY make")
     makes = [row["make"] for row in cursor.fetchall()]
     conn.close()
     return makes

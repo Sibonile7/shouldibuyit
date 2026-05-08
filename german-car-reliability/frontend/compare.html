@@ -164,8 +164,9 @@
             const grid = document.createElement("div");
             grid.className = "compare-grid";
 
+            // Use shared renderCarCard from app.js (mode "compare")
             data.forEach(car => {
-                grid.innerHTML += renderCarCard(car);
+                grid.innerHTML += renderCarCard(car, "compare");
             });
 
             container.appendChild(grid);
