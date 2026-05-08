@@ -20,6 +20,8 @@
     --green: #4a7a3a;
     --bar-bg: #f0eee7;
     --hover-bg: #f5f3ec;
+    --highlight-bg: #faf6e8;
+    --highlight-border: #ebe3c2;
     --radius: 4px;
 }
 
@@ -275,9 +277,9 @@ button:disabled {
     border: 1px solid #f0dac0;
 }
 .badge-injury {
-    background: #faf6e8;
+    background: var(--highlight-bg);
     color: var(--accent);
-    border: 1px solid #ebe3c2;
+    border: 1px solid var(--highlight-border);
 }
 
 /* === ISSUE BARS === */
@@ -397,7 +399,7 @@ button:disabled {
 }
 .sample-meta {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     margin-top: 10px;
     font-family: "JetBrains Mono", monospace;
     font-size: 10px;
@@ -410,6 +412,13 @@ button:disabled {
     border: 1px solid var(--border);
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    border-radius: 2px;
+}
+.sample-tag-match {
+    background: var(--highlight-bg);
+    color: var(--accent);
+    border: 1px solid var(--highlight-border);
+    font-weight: 500;
 }
 .sample-crash {
     padding: 2px 8px;
@@ -419,6 +428,7 @@ button:disabled {
     text-transform: uppercase;
     letter-spacing: 0.5px;
     font-weight: 500;
+    border-radius: 2px;
 }
 
 .load-more-btn {

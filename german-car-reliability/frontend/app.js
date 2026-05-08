@@ -7,7 +7,41 @@
  *   - Rendering complaint data as bar charts and cards
  *   - Clicking a bar filters the complaints list to that component
  *   - Load more button paginates through filtered complaints
+ *   - Component tags are split into individual pills, with the active
+ *     filter component highlighted so the user sees why a complaint matched
  */
+
+
+// === COMPONENT NORMALIZATION (mirror of backend) ===
+// Used so we can match frontend display with backend filter logic.
+const COMPONENT_CLEANUP = {
+    "ENGINE AND ENGINE COOLING": "ENGINE",
+    "SERVICE BRAKES": "BRAKES",
+    "SERVICE BRAKES, HYDRAULIC": "BRAKES",
+    "FUEL SYSTEM, GASOLINE": "FUEL SYSTEM",
+    "FUEL/PROPULSION SYSTEM": "FUEL SYSTEM",
+    "EXTERIOR LIGHTING": "LIGHTS",
+    "FORWARD COLLISION AVOIDANCE": "SAFETY TECH",
+    "ELECTRONIC STABILITY CONTROL (ESC)": "STABILITY CONTROL",
+    "VEHICLE SPEED CONTROL": "ACCELERATION",
+    "EQUIPMENT ADAPTIVE/MOBILITY": "EQUIPMENT",
+    "LATCHES/LOCKS/LINKAGES": "LOCKS",
+    "VISIBILITY/WIPER": "VISIBILITY",
+    "UNKNOWN OR OTHER": "OTHER",
+};
+
+function cleanComponent(raw) {
+    const upper = raw.trim().toUpperCase();
+    return COMPONENT_CLEANUP[upper] || upper;
+}
+
+function splitComponents(rawComponentString) {
+    if (!rawComponentString) return [];
+    // NHTSA's "FUEL SYSTEM, GASOLINE" has internal commas in some categories.
+    // Splitting naively on "," would break those. We rely on the cleanup map
+    // to handle them — the raw split-on-comma matches what the backend does.
+    return rawComponentString.split(",").map(p => p.trim()).filter(Boolean);
+}
 
 
 // === DROPDOWN POPULATION ===
@@ -112,8 +146,52 @@ async function searchCar() {
 
 // === RENDER CAR CARD ===
 
+function renderComponentTags(rawComponentString, activeFilter = null) {
+    /*
+     * Split the comma-separated raw component string into individual pills.
+     * If activeFilter is set (we're in filter mode), highlight any pill
+     * whose cleaned-up form matches the filter so the user sees why
+     * this complaint matched.
+     */
+    const parts = splitComponents(rawComponentString);
+    if (parts.length === 0) return '';
+
+    return parts.map(part => {
+        const cleaned = cleanComponent(part);
+        const isMatch = activeFilter && cleaned === activeFilter;
+        const cls = isMatch ? 'sample-tag sample-tag-match' : 'sample-tag';
+        return `<span class="${cls}">${part}</span>`;
+    }).join('');
+}
+
+function renderSampleHTML(s, activeFilter = null) {
+    /*
+     * Render a single complaint sample. If activeFilter is set,
+     * the matching component tag will be highlighted.
+     */
+    const tags = [];
+    if (s.crash) tags.push('<span class="sample-crash">CRASH</span>');
+    if (s.fire) tags.push('<span class="sample-crash">FIRE</span>');
+    if (s.injuries && s.injuries > 0) {
+        tags.push(`<span class="sample-crash">${s.injuries} INJ</span>`);
+    }
+
+    const componentPills = renderComponentTags(s.component, activeFilter);
+    const dateTag = s.date_filed ? `<span class="sample-tag">${s.date_filed}</span>` : '';
+
+    return `
+        <div class="sample">
+            ${s.summary}
+            <div class="sample-meta">
+                ${tags.join('')}
+                ${componentPills}
+                ${dateTag}
+            </div>
+        </div>
+    `;
+}
+
 function renderCarCard(car, mode) {
-    // mode: "single" (full width) or "compare" (side-by-side)
     const cardId = `card-${car.make}-${car.model}-${car.year}`.replace(/\s+/g, "_");
     const maxCount = car.top_issues.length > 0 ? car.top_issues[0].count : 1;
 
@@ -133,22 +211,9 @@ function renderCarCard(car, mode) {
         `;
     });
 
-    let samplesHTML = "";
-    car.sample_complaints.forEach(s => {
-        const tags = [];
-        if (s.crash) tags.push('<span class="sample-crash">CRASH</span>');
-        if (s.fire) tags.push('<span class="sample-crash">FIRE</span>');
-        tags.push(`<span class="sample-tag">${s.component}</span>`);
-
-        samplesHTML += `
-            <div class="sample">
-                ${s.summary}
-                <div class="sample-meta">
-                    ${tags.join("")}
-                </div>
-            </div>
-        `;
-    });
+    const samplesHTML = car.sample_complaints
+        .map(s => renderSampleHTML(s, null))  // No active filter on initial render
+        .join('');
 
     return `
         <div class="car-card" id="${cardId}">
@@ -181,7 +246,6 @@ function renderCarCard(car, mode) {
 
 // === FILTER BY COMPONENT ===
 
-// Track current filter state per card to support pagination
 const filterState = {};
 
 async function filterByComponent(make, model, year, component, cardId) {
@@ -200,14 +264,12 @@ async function filterByComponent(make, model, year, component, cardId) {
 
     const data = await res.json();
 
-    // Save state for "load more" button
     filterState[cardId] = {
         make, model, year, component,
         offset: data.complaints.length,
         total: data.total_matching,
     };
 
-    // Update header to show what's filtered
     headerEl.innerHTML = `
         <div class="samples-title">
             ${data.total_matching} ${component} complaint${data.total_matching === 1 ? '' : 's'}
@@ -217,9 +279,11 @@ async function filterByComponent(make, model, year, component, cardId) {
         </button>
     `;
 
-    samplesList.innerHTML = data.complaints.map(renderComplaintCard).join("");
+    // Pass the active component so matching pills are highlighted
+    samplesList.innerHTML = data.complaints
+        .map(c => renderSampleHTML(c, component.toUpperCase()))
+        .join('');
 
-    // Add "load more" button if there are more
     if (data.has_more) {
         const loadMore = document.createElement("button");
         loadMore.className = "load-more-btn";
@@ -241,14 +305,13 @@ async function loadMoreComplaints(cardId) {
     const res = await fetch(url);
     const data = await res.json();
 
-    // Append new complaints
-    const newHTML = data.complaints.map(renderComplaintCard).join("");
+    const newHTML = data.complaints
+        .map(c => renderSampleHTML(c, state.component.toUpperCase()))
+        .join('');
     samplesList.insertAdjacentHTML("beforeend", newHTML);
 
-    // Update state
     state.offset += data.complaints.length;
 
-    // Add load more button again if still more remaining
     if (data.has_more) {
         const loadMore = document.createElement("button");
         loadMore.className = "load-more-btn";
@@ -269,36 +332,11 @@ async function resetFilter(make, model, year, cardId) {
 
     headerEl.innerHTML = '<div class="samples-title">Recent owner complaints</div>';
 
-    samplesList.innerHTML = data.sample_complaints.map(s => {
-        const tags = [];
-        if (s.crash) tags.push('<span class="sample-crash">CRASH</span>');
-        if (s.fire) tags.push('<span class="sample-crash">FIRE</span>');
-        tags.push(`<span class="sample-tag">${s.component}</span>`);
-        return `
-            <div class="sample">
-                ${s.summary}
-                <div class="sample-meta">${tags.join("")}</div>
-            </div>
-        `;
-    }).join("");
+    samplesList.innerHTML = data.sample_complaints
+        .map(s => renderSampleHTML(s, null))
+        .join('');
 
     delete filterState[cardId];
-}
-
-function renderComplaintCard(c) {
-    const tags = [];
-    if (c.crash) tags.push('<span class="sample-crash">CRASH</span>');
-    if (c.fire) tags.push('<span class="sample-crash">FIRE</span>');
-    if (c.injuries > 0) tags.push(`<span class="sample-crash">${c.injuries} INJ</span>`);
-    tags.push(`<span class="sample-tag">${c.component}</span>`);
-    if (c.date_filed) tags.push(`<span class="sample-tag">${c.date_filed}</span>`);
-
-    return `
-        <div class="sample">
-            ${c.summary}
-            <div class="sample-meta">${tags.join("")}</div>
-        </div>
-    `;
 }
 
 
