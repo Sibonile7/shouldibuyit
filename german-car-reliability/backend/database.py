@@ -1,12 +1,9 @@
 """
 Database layer for the German car reliability API.
 
-Handles SQLite connection and all queries.
-Normalizes NHTSA's multi-component fields into
-individual components for clean ranking.
-
-Example: "ENGINE AND ENGINE COOLING,ELECTRICAL SYSTEM"
-becomes two separate counts: one for ENGINE, one for ELECTRICAL SYSTEM.
+Handles SQLite connection and all queries for both complaints and recalls.
+Normalizes NHTSA's multi-component fields into individual components
+for clean ranking.
 """
 
 import os
@@ -14,8 +11,6 @@ import sqlite3
 
 
 # Mapping of raw NHTSA component strings to clean names.
-# NHTSA uses verbose names like "ENGINE AND ENGINE COOLING"
-# which we shorten for the dashboard.
 COMPONENT_CLEANUP = {
     "ENGINE AND ENGINE COOLING": "ENGINE",
     "SERVICE BRAKES": "BRAKES",
@@ -49,19 +44,11 @@ def get_connection():
 
 
 def clean_component(raw):
-    """Clean up a single component name."""
     raw = raw.strip().upper()
     return COMPONENT_CLEANUP.get(raw, raw)
 
 
 def row_matches_component(raw_component, target_component):
-    """
-    Check if a complaint's raw component string matches a clean target.
-
-    NHTSA stores "ENGINE AND ENGINE COOLING,ELECTRICAL SYSTEM" as one
-    field. If the user clicks "ELECTRICAL SYSTEM" we need to match that
-    even though it's mixed with engine in the raw string.
-    """
     if not raw_component:
         return target_component == "OTHER"
     parts = raw_component.split(",")
@@ -72,10 +59,6 @@ def row_matches_component(raw_component, target_component):
 
 
 def split_and_count_components(rows):
-    """
-    Take raw complaint rows and split multi-component fields.
-    Returns a sorted list of (component, count) tuples.
-    """
     counts = {}
     for row in rows:
         raw = row["component"] or "OTHER"
@@ -83,7 +66,6 @@ def split_and_count_components(rows):
         for part in parts:
             name = clean_component(part)
             counts[name] = counts.get(name, 0) + 1
-
     return sorted(counts.items(), key=lambda x: x[1], reverse=True)
 
 
@@ -102,11 +84,14 @@ def get_car_summary(make, model, year):
     rows = cursor.fetchall()
     total = len(rows)
 
-    if total == 0:
+    # Always check for recalls, even if no complaints
+    recalls = get_recalls_for_car(make, model, year)
+
+    if total == 0 and len(recalls) == 0:
         conn.close()
         return None
 
-    top_issues = split_and_count_components(rows)
+    top_issues = split_and_count_components(rows) if rows else []
 
     crashes = sum(1 for r in rows if r["crash"])
     fires = sum(1 for r in rows if r["fire"])
@@ -149,18 +134,59 @@ def get_car_summary(make, model, year):
             "deaths": deaths,
         },
         "sample_complaints": samples,
+        "recalls": recalls,
     }
 
 
+def get_recalls_for_car(make, model, year):
+    """
+    Get all recalls for a specific car.
+
+    Returns a list of recall dicts ordered by report date (newest first).
+    Returns empty list if the recalls table doesn't exist yet
+    (i.e. recalls_fetcher.py hasn't been run).
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Check if recalls table exists first
+    cursor.execute("""
+        SELECT name FROM sqlite_master
+        WHERE type='table' AND name='recalls'
+    """)
+    if not cursor.fetchone():
+        conn.close()
+        return []
+
+    cursor.execute("""
+        SELECT campaign_number, component, summary, consequence, remedy,
+               report_date, park_it, park_outside, ota_update, manufacturer
+        FROM recalls
+        WHERE make = ? AND model = ? AND model_year = ?
+        ORDER BY report_date DESC
+    """, (make.upper(), model.upper(), int(year)))
+
+    recalls = []
+    for row in cursor.fetchall():
+        recalls.append({
+            "campaign_number": row["campaign_number"],
+            "component": row["component"],
+            "summary": row["summary"],
+            "consequence": row["consequence"],
+            "remedy": row["remedy"],
+            "report_date": row["report_date"],
+            "park_it": bool(row["park_it"]),
+            "park_outside": bool(row["park_outside"]),
+            "ota_update": bool(row["ota_update"]),
+            "manufacturer": row["manufacturer"],
+        })
+
+    conn.close()
+    return recalls
+
+
 def get_complaints_by_component(make, model, year, component, limit=20, offset=0):
-    """
-    Get all complaints for a car, filtered by a clean component name.
-
-    Used when user clicks a bar in the dashboard to see complaints
-    for that specific component (e.g. only ENGINE complaints).
-
-    Returns dict with complaints list, total matching, and pagination info.
-    """
+    """Get all complaints for a car, filtered by clean component name."""
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -175,7 +201,6 @@ def get_complaints_by_component(make, model, year, component, limit=20, offset=0
     all_rows = cursor.fetchall()
     conn.close()
 
-    # Filter by component (in Python, since NHTSA strings are messy)
     matching = [
         row for row in all_rows
         if row_matches_component(row["component"], component.upper())
@@ -208,7 +233,6 @@ def get_complaints_by_component(make, model, year, component, limit=20, offset=0
 
 
 def get_comparison(cars):
-    """Compare multiple cars side by side."""
     results = []
     for make, model, year in cars:
         summary = get_car_summary(make, model, year)
@@ -218,7 +242,6 @@ def get_comparison(cars):
 
 
 def get_available_makes():
-    """List all makes in the database."""
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT DISTINCT make FROM complaints ORDER BY make")
@@ -228,7 +251,6 @@ def get_available_makes():
 
 
 def get_available_models(make):
-    """List all models for a given make."""
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -242,7 +264,6 @@ def get_available_models(make):
 
 
 def get_available_years(make, model):
-    """List all years for a given make/model."""
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -256,7 +277,6 @@ def get_available_years(make, model):
 
 
 def get_stats():
-    """Get overall database statistics."""
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) as total FROM complaints")
@@ -265,9 +285,21 @@ def get_stats():
     makes = cursor.fetchone()["makes"]
     cursor.execute("SELECT COUNT(DISTINCT model) as models FROM complaints")
     models = cursor.fetchone()["models"]
+
+    # Recalls count (if table exists)
+    total_recalls = 0
+    cursor.execute("""
+        SELECT name FROM sqlite_master
+        WHERE type='table' AND name='recalls'
+    """)
+    if cursor.fetchone():
+        cursor.execute("SELECT COUNT(*) as total FROM recalls")
+        total_recalls = cursor.fetchone()["total"]
+
     conn.close()
     return {
         "total_complaints": total,
+        "total_recalls": total_recalls,
         "total_makes": makes,
         "total_models": models,
     }

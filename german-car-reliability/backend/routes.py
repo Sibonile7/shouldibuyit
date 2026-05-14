@@ -2,7 +2,7 @@
 API routes for the German car reliability dashboard.
 
 Endpoints:
-    GET /api/car/{make}/{model}/{year}              - Complaint summary
+    GET /api/car/{make}/{model}/{year}              - Complaint summary + recalls
     GET /api/car/{make}/{model}/{year}/component/{component}  - Filter by component
     GET /api/compare                                - Side-by-side
     GET /api/makes                                  - List makes
@@ -32,14 +32,14 @@ router = APIRouter(prefix="/api")
 @router.get("/car/{make}/{model}/{year}")
 def car_summary(make: str, model: str, year: int):
     """
-    Get complaint summary for a specific car.
+    Get complaint summary and recalls for a specific car.
     Example: /api/car/BMW/328I/2014
     """
     result = get_car_summary(make, model, year)
     if result is None:
         raise HTTPException(
             status_code=404,
-            detail=f"No complaints found for {make} {model} {year}"
+            detail=f"No data found for {make} {model} {year}"
         )
     return result
 
@@ -55,9 +55,7 @@ def complaints_by_component(
 ):
     """
     Get all complaints for a car filtered by component.
-
     Example: /api/car/BMW/328I/2014/component/ENGINE
-    Pagination: ?limit=20&offset=20 to get the next page.
     """
     result = get_complaints_by_component(
         make, model, year, component, limit=limit, offset=offset
@@ -109,20 +107,18 @@ def compare_cars(cars: str = Query(
     if not results:
         raise HTTPException(
             status_code=404,
-            detail="No complaints found for any of the specified cars"
+            detail="No data found for any of the specified cars"
         )
     return results
 
 
 @router.get("/makes")
 def list_makes():
-    """List all available car makes."""
     return get_available_makes()
 
 
 @router.get("/models/{make}")
 def list_models(make: str):
-    """List all models for a given make."""
     models = get_available_models(make)
     if not models:
         raise HTTPException(
@@ -133,7 +129,6 @@ def list_models(make: str):
 
 @router.get("/years/{make}/{model}")
 def list_years(make: str, model: str):
-    """List all years for a given make/model."""
     years = get_available_years(make, model)
     if not years:
         raise HTTPException(
@@ -144,5 +139,4 @@ def list_years(make: str, model: str):
 
 @router.get("/stats")
 def database_stats():
-    """Get overall database statistics."""
     return get_stats()

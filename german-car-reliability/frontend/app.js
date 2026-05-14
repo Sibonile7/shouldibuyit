@@ -7,13 +7,11 @@
  *   - Rendering complaint data as bar charts and cards
  *   - Clicking a bar filters the complaints list to that component
  *   - Load more button paginates through filtered complaints
- *   - Component tags are split into individual pills, with the active
- *     filter component highlighted so the user sees why a complaint matched
+ *   - Component tags are split into individual pills with active filter highlighted
+ *   - NEW: Shows official recalls for each car with severity flags
  */
 
 
-// === COMPONENT NORMALIZATION (mirror of backend) ===
-// Used so we can match frontend display with backend filter logic.
 const COMPONENT_CLEANUP = {
     "ENGINE AND ENGINE COOLING": "ENGINE",
     "SERVICE BRAKES": "BRAKES",
@@ -37,12 +35,8 @@ function cleanComponent(raw) {
 
 function splitComponents(rawComponentString) {
     if (!rawComponentString) return [];
-    // NHTSA's "FUEL SYSTEM, GASOLINE" has internal commas in some categories.
-    // Splitting naively on "," would break those. We rely on the cleanup map
-    // to handle them — the raw split-on-comma matches what the backend does.
     return rawComponentString.split(",").map(p => p.trim()).filter(Boolean);
 }
-
 
 // === DROPDOWN POPULATION ===
 
@@ -147,12 +141,6 @@ async function searchCar() {
 // === RENDER CAR CARD ===
 
 function renderComponentTags(rawComponentString, activeFilter = null) {
-    /*
-     * Split the comma-separated raw component string into individual pills.
-     * If activeFilter is set (we're in filter mode), highlight any pill
-     * whose cleaned-up form matches the filter so the user sees why
-     * this complaint matched.
-     */
     const parts = splitComponents(rawComponentString);
     if (parts.length === 0) return '';
 
@@ -165,10 +153,6 @@ function renderComponentTags(rawComponentString, activeFilter = null) {
 }
 
 function renderSampleHTML(s, activeFilter = null) {
-    /*
-     * Render a single complaint sample. If activeFilter is set,
-     * the matching component tag will be highlighted.
-     */
     const tags = [];
     if (s.crash) tags.push('<span class="sample-crash">CRASH</span>');
     if (s.fire) tags.push('<span class="sample-crash">FIRE</span>');
@@ -191,35 +175,100 @@ function renderSampleHTML(s, activeFilter = null) {
     `;
 }
 
+function renderRecallsHTML(recalls) {
+    /*
+     * Renders the recalls section.
+     * Recalls are official manufacturer/government safety notices,
+     * not individual complaints. Each shows component, summary,
+     * consequence, and remedy.
+     */
+    if (!recalls || recalls.length === 0) {
+        return `
+            <div class="recalls-section">
+                <div class="samples-title">Official recalls</div>
+                <div class="no-recalls">No active recalls for this car.</div>
+            </div>
+        `;
+    }
+
+    const recallsList = recalls.map(r => {
+        const flags = [];
+        if (r.park_it) flags.push('<span class="recall-flag flag-severe">PARK IT</span>');
+        if (r.park_outside) flags.push('<span class="recall-flag flag-severe">PARK OUTSIDE</span>');
+        if (r.ota_update) flags.push('<span class="recall-flag flag-mild">OTA UPDATE</span>');
+
+        return `
+            <div class="recall-card">
+                <div class="recall-header">
+                    <div class="recall-campaign">Campaign ${r.campaign_number}</div>
+                    ${r.report_date ? `<div class="recall-date">${r.report_date}</div>` : ''}
+                </div>
+                ${flags.length > 0 ? `<div class="recall-flags">${flags.join('')}</div>` : ''}
+                <div class="recall-component">${r.component || 'Unknown component'}</div>
+                <div class="recall-body">
+                    <div class="recall-section-label">What's wrong</div>
+                    <div class="recall-text">${r.summary || 'No summary available.'}</div>
+                </div>
+                ${r.consequence ? `
+                    <div class="recall-body">
+                        <div class="recall-section-label">Risk</div>
+                        <div class="recall-text">${r.consequence}</div>
+                    </div>
+                ` : ''}
+                ${r.remedy ? `
+                    <div class="recall-body">
+                        <div class="recall-section-label">Fix</div>
+                        <div class="recall-text">${r.remedy}</div>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div class="recalls-section">
+            <div class="samples-title">${recalls.length} official recall${recalls.length === 1 ? '' : 's'}</div>
+            ${recallsList}
+        </div>
+    `;
+}
+
 function renderCarCard(car, mode) {
     const cardId = `card-${car.make}-${car.model}-${car.year}`.replace(/\s+/g, "_");
     const maxCount = car.top_issues.length > 0 ? car.top_issues[0].count : 1;
 
     let issuesHTML = "";
-    car.top_issues.forEach((issue, i) => {
-        const pct = (issue.count / maxCount) * 100;
-        issuesHTML += `
-            <div class="issue-row clickable"
-                 onclick="filterByComponent('${car.make}', '${car.model}', ${car.year}, '${issue.component}', '${cardId}')"
-                 title="Click to see only ${issue.component} complaints">
-                <div class="issue-name">${issue.component}</div>
-                <div class="issue-bar-track">
-                    <div class="issue-bar-fill bar-${i + 1}" style="width: ${pct}%"></div>
+    if (car.top_issues.length > 0) {
+        car.top_issues.forEach((issue, i) => {
+            const pct = (issue.count / maxCount) * 100;
+            issuesHTML += `
+                <div class="issue-row clickable"
+                     onclick="filterByComponent('${car.make}', '${car.model}', ${car.year}, '${issue.component}', '${cardId}')"
+                     title="Click to see only ${issue.component} complaints">
+                    <div class="issue-name">${issue.component}</div>
+                    <div class="issue-bar-track">
+                        <div class="issue-bar-fill bar-${i + 1}" style="width: ${pct}%"></div>
+                    </div>
+                    <div class="issue-count">${issue.count}</div>
                 </div>
-                <div class="issue-count">${issue.count}</div>
-            </div>
-        `;
-    });
+            `;
+        });
+    }
 
     const samplesHTML = car.sample_complaints
-        .map(s => renderSampleHTML(s, null))  // No active filter on initial render
+        .map(s => renderSampleHTML(s, null))
         .join('');
+
+    const recallsCount = (car.recalls || []).length;
 
     return `
         <div class="car-card" id="${cardId}">
             <div class="car-header">
                 <div class="car-name">${car.year} ${car.make} ${car.model}</div>
-                <div class="car-total"><strong>${car.total_complaints}</strong> complaints</div>
+                <div class="car-total">
+                    <strong>${car.total_complaints}</strong> complaints
+                    ${recallsCount > 0 ? `<span class="recall-badge">${recallsCount} recall${recallsCount === 1 ? '' : 's'}</span>` : ''}
+                </div>
             </div>
 
             <div class="severity-row">
@@ -228,8 +277,12 @@ function renderCarCard(car, mode) {
                 ${car.severity.injuries > 0 ? `<div class="badge badge-injury">${car.severity.injuries} injuries</div>` : ""}
             </div>
 
-            <div class="issues-title">Top issues by complaint frequency. Click any bar to filter complaints below.</div>
-            ${issuesHTML}
+            ${car.top_issues.length > 0 ? `
+                <div class="issues-title">Top issues by complaint frequency. Click any bar to filter complaints below.</div>
+                ${issuesHTML}
+            ` : ''}
+
+            ${renderRecallsHTML(car.recalls)}
 
             <div class="samples-section">
                 <div class="samples-header">
@@ -279,7 +332,6 @@ async function filterByComponent(make, model, year, component, cardId) {
         </button>
     `;
 
-    // Pass the active component so matching pills are highlighted
     samplesList.innerHTML = data.complaints
         .map(c => renderSampleHTML(c, component.toUpperCase()))
         .join('');
@@ -348,5 +400,9 @@ async function loadStats() {
 
     const res = await fetch("/api/stats");
     const data = await res.json();
-    el.textContent = `${data.total_complaints.toLocaleString()} complaints across ${data.total_makes} brands and ${data.total_models} models`;
+    let text = `${data.total_complaints.toLocaleString()} complaints across ${data.total_makes} brands and ${data.total_models} models`;
+    if (data.total_recalls && data.total_recalls > 0) {
+        text += ` and ${data.total_recalls.toLocaleString()} recalls`;
+    }
+    el.textContent = text;
 }

@@ -115,9 +115,7 @@ main {
 }
 
 /* === SEARCH === */
-.search-section {
-    margin-bottom: 48px;
-}
+.search-section { margin-bottom: 48px; }
 .search-box {
     background: var(--bg-card);
     border: 1px solid var(--border);
@@ -130,10 +128,7 @@ main {
     align-items: flex-end;
     flex-wrap: wrap;
 }
-.field {
-    flex: 1;
-    min-width: 140px;
-}
+.field { flex: 1; min-width: 140px; }
 .field label {
     display: block;
     font-size: 11px;
@@ -153,9 +148,7 @@ main {
     text-transform: uppercase;
     letter-spacing: 2px;
 }
-.car-label:first-child {
-    margin-top: 0;
-}
+.car-label:first-child { margin-top: 0; }
 
 select, input {
     width: 100%;
@@ -173,14 +166,8 @@ select, input {
     background-position: right 14px center;
     padding-right: 36px;
 }
-select:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-}
-select:focus, input:focus {
-    outline: none;
-    border-color: var(--text);
-}
+select:disabled { opacity: 0.4; cursor: not-allowed; }
+select:focus, input:focus { outline: none; border-color: var(--text); }
 
 button {
     padding: 11px 28px;
@@ -197,22 +184,12 @@ button {
     text-transform: uppercase;
     letter-spacing: 1px;
 }
-button:hover:not(:disabled) {
-    background: var(--accent);
-    border-color: var(--accent);
-}
-button:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
-}
+button:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); }
+button:disabled { opacity: 0.3; cursor: not-allowed; }
 
 /* === RESULTS === */
-.results {
-    margin-bottom: 48px;
-}
-.hidden {
-    display: none;
-}
+.results { margin-bottom: 48px; }
+.hidden { display: none; }
 
 /* === CAR CARD === */
 .car-card {
@@ -241,11 +218,25 @@ button:disabled {
     font-family: "JetBrains Mono", monospace;
     font-size: 13px;
     color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 .car-total strong {
     color: var(--text);
     font-size: 22px;
     font-weight: 700;
+}
+.recall-badge {
+    padding: 3px 10px;
+    background: #fdf2f2;
+    color: var(--red);
+    border: 1px solid #f0d4d4;
+    border-radius: 2px;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 /* === SEVERITY BADGES === */
@@ -266,21 +257,9 @@ button:disabled {
     letter-spacing: 0.5px;
     text-transform: uppercase;
 }
-.badge-crash {
-    background: #fdf2f2;
-    color: var(--red);
-    border: 1px solid #f0d4d4;
-}
-.badge-fire {
-    background: #fdf6ef;
-    color: var(--orange);
-    border: 1px solid #f0dac0;
-}
-.badge-injury {
-    background: var(--highlight-bg);
-    color: var(--accent);
-    border: 1px solid var(--highlight-border);
-}
+.badge-crash { background: #fdf2f2; color: var(--red); border: 1px solid #f0d4d4; }
+.badge-fire { background: #fdf6ef; color: var(--orange); border: 1px solid #f0dac0; }
+.badge-injury { background: var(--highlight-bg); color: var(--accent); border: 1px solid var(--highlight-border); }
 
 /* === ISSUE BARS === */
 .issues-title {
@@ -303,12 +282,8 @@ button:disabled {
     border-radius: var(--radius);
     transition: background 0.15s;
 }
-.issue-row.clickable {
-    cursor: pointer;
-}
-.issue-row.clickable:hover {
-    background: var(--hover-bg);
-}
+.issue-row.clickable { cursor: pointer; }
+.issue-row.clickable:hover { background: var(--hover-bg); }
 .issue-name {
     width: 140px;
     font-size: 13px;
@@ -340,12 +315,101 @@ button:disabled {
     font-weight: 500;
 }
 
-/* Bar colors by rank */
 .bar-1 { background: var(--red); }
 .bar-2 { background: var(--orange); }
 .bar-3 { background: var(--accent); }
-.bar-4, .bar-5, .bar-6, .bar-7, .bar-8, .bar-9, .bar-10 {
-    background: #b8b6ad;
+.bar-4, .bar-5, .bar-6, .bar-7, .bar-8, .bar-9, .bar-10 { background: #b8b6ad; }
+
+/* === RECALLS SECTION === */
+.recalls-section {
+    margin-top: 36px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+}
+.no-recalls {
+    font-size: 13px;
+    color: var(--text-dim);
+    font-style: italic;
+    padding: 8px 0;
+}
+.recall-card {
+    background: #fefcf8;
+    border: 1px solid #f0e8d4;
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    margin-bottom: 12px;
+}
+.recall-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.recall-campaign {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+.recall-date {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+}
+.recall-component {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 14px;
+    margin-top: 4px;
+    color: var(--text);
+}
+.recall-flags {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+.recall-flag {
+    padding: 3px 10px;
+    border-radius: 2px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+.flag-severe {
+    background: #fdf2f2;
+    color: var(--red);
+    border: 1px solid #f0d4d4;
+}
+.flag-mild {
+    background: var(--highlight-bg);
+    color: var(--accent);
+    border: 1px solid var(--highlight-border);
+}
+.recall-body {
+    margin-bottom: 10px;
+}
+.recall-body:last-child { margin-bottom: 0; }
+.recall-section-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+}
+.recall-text {
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--text);
 }
 
 /* === SAMPLE COMPLAINTS === */
@@ -446,19 +510,14 @@ button:disabled {
     cursor: pointer;
     transition: all 0.15s;
 }
-.load-more-btn:hover {
-    background: var(--hover-bg);
-    border-color: var(--text);
-}
+.load-more-btn:hover { background: var(--hover-bg); border-color: var(--text); }
 
-/* === COMPARE GRID === */
 .compare-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 20px;
 }
 
-/* === STATS === */
 .stats-section {
     margin-top: 32px;
     border-top: 1px solid var(--border);
@@ -472,7 +531,6 @@ button:disabled {
     letter-spacing: 1px;
 }
 
-/* === FOOTER === */
 footer {
     max-width: 960px;
     margin: 0 auto;
@@ -482,11 +540,8 @@ footer {
     color: var(--text-dim);
     text-align: center;
 }
-footer a {
-    color: var(--text-dim);
-}
+footer a { color: var(--text-dim); }
 
-/* === LOADING === */
 .loading {
     text-align: center;
     padding: 40px;
@@ -495,19 +550,9 @@ footer a {
     font-size: 13px;
 }
 
-/* === RESPONSIVE === */
 @media (max-width: 700px) {
-    .search-row {
-        flex-direction: column;
-    }
-    .compare-grid {
-        grid-template-columns: 1fr;
-    }
-    .hero h1 {
-        font-size: 32px;
-    }
-    .issue-name {
-        width: 100px;
-        font-size: 12px;
-    }
+    .search-row { flex-direction: column; }
+    .compare-grid { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 32px; }
+    .issue-name { width: 100px; font-size: 12px; }
 }
