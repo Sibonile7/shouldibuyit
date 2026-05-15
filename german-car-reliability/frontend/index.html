@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>shouldlbuyit</title>
+    <title>German Car Reliability</title>
     <link rel="stylesheet" href="/static/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -15,6 +15,7 @@
             <div class="nav-links">
                 <a href="/" class="active">Search</a>
                 <a href="/static/compare.html">Compare</a>
+                <a href="/static/top.html">Top reliable</a>
             </div>
         </div>
     </nav>
@@ -51,9 +52,7 @@
             </div>
         </section>
 
-        <section id="results" class="results hidden">
-            <!-- Filled by JavaScript -->
-        </section>
+        <section id="results" class="results hidden"></section>
 
         <section id="stats-section" class="stats-section">
             <div id="stats">Loading database stats...</div>
@@ -65,5 +64,25 @@
     </footer>
 
     <script src="/static/app.js"></script>
+    <script>
+        // Auto-search if URL has ?make=...&model=...&year=...
+        // (used by Top Reliable page to deep-link)
+        window.addEventListener("DOMContentLoaded", async () => {
+            const params = new URLSearchParams(window.location.search);
+            const m = params.get("make"), mo = params.get("model"), y = params.get("year");
+            if (m && mo && y) {
+                // Wait a moment for dropdowns to populate, then set and search
+                setTimeout(async () => {
+                    document.getElementById("make").value = m;
+                    await loadModels();
+                    document.getElementById("model").value = mo;
+                    await loadYears();
+                    document.getElementById("year").value = y;
+                    document.getElementById("search-btn").disabled = false;
+                    searchCar();
+                }, 400);
+            }
+        });
+    </script>
 </body>
 </html>

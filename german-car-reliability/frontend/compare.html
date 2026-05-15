@@ -15,6 +15,7 @@
             <div class="nav-links">
                 <a href="/">Search</a>
                 <a href="/static/compare.html" class="active">Compare</a>
+                <a href="/static/top.html">Top reliable</a>
             </div>
         </div>
     </nav>
@@ -75,9 +76,7 @@
             </div>
         </section>
 
-        <section id="compare-results" class="results hidden">
-            <!-- Filled by JavaScript -->
-        </section>
+        <section id="compare-results" class="results hidden"></section>
     </main>
 
     <footer>
@@ -86,7 +85,6 @@
 
     <script src="/static/app.js"></script>
     <script>
-        // Load makes for both dropdowns on page load
         window.addEventListener("DOMContentLoaded", async () => {
             const res = await fetch("/api/makes");
             const makes = await res.json();
@@ -164,7 +162,6 @@
             const grid = document.createElement("div");
             grid.className = "compare-grid";
 
-            // Use shared renderCarCard from app.js (mode "compare")
             data.forEach(car => {
                 grid.innerHTML += renderCarCard(car, "compare");
             });

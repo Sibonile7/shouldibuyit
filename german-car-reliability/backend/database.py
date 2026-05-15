@@ -1,16 +1,14 @@
 """
 Database layer for the German car reliability API.
 
-Handles SQLite connection and all queries for both complaints and recalls.
-Normalizes NHTSA's multi-component fields into individual components
-for clean ranking.
+Handles SQLite connection and all queries for complaints, recalls,
+and the new reliability ranking system.
 """
 
 import os
 import sqlite3
 
 
-# Mapping of raw NHTSA component strings to clean names.
 COMPONENT_CLEANUP = {
     "ENGINE AND ENGINE COOLING": "ENGINE",
     "SERVICE BRAKES": "BRAKES",
@@ -29,14 +27,12 @@ COMPONENT_CLEANUP = {
 
 
 def get_db_path():
-    """Find the database relative to the project root."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(script_dir)
     return os.path.join(project_root, "data", "cars.db")
 
 
 def get_connection():
-    """Create a database connection with row factory."""
     db_path = get_db_path()
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
@@ -70,7 +66,7 @@ def split_and_count_components(rows):
 
 
 def get_car_summary(make, model, year):
-    """Get complaint summary for a specific car."""
+    """Get complaint summary + recalls for a specific car."""
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -84,7 +80,6 @@ def get_car_summary(make, model, year):
     rows = cursor.fetchall()
     total = len(rows)
 
-    # Always check for recalls, even if no complaints
     recalls = get_recalls_for_car(make, model, year)
 
     if total == 0 and len(recalls) == 0:
@@ -139,17 +134,10 @@ def get_car_summary(make, model, year):
 
 
 def get_recalls_for_car(make, model, year):
-    """
-    Get all recalls for a specific car.
-
-    Returns a list of recall dicts ordered by report date (newest first).
-    Returns empty list if the recalls table doesn't exist yet
-    (i.e. recalls_fetcher.py hasn't been run).
-    """
+    """Get all recalls for a specific car."""
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Check if recalls table exists first
     cursor.execute("""
         SELECT name FROM sqlite_master
         WHERE type='table' AND name='recalls'
@@ -186,7 +174,7 @@ def get_recalls_for_car(make, model, year):
 
 
 def get_complaints_by_component(make, model, year, component, limit=20, offset=0):
-    """Get all complaints for a car, filtered by clean component name."""
+    """Get complaints for a car filtered by component."""
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -286,7 +274,6 @@ def get_stats():
     cursor.execute("SELECT COUNT(DISTINCT model) as models FROM complaints")
     models = cursor.fetchone()["models"]
 
-    # Recalls count (if table exists)
     total_recalls = 0
     cursor.execute("""
         SELECT name FROM sqlite_master
@@ -303,3 +290,117 @@ def get_stats():
         "total_makes": makes,
         "total_models": models,
     }
+
+
+def get_top_reliable_cars(
+    w_complaints=1.0,
+    w_crashes=3.0,
+    w_fires=5.0,
+    w_injuries=4.0,
+    w_recalls=2.0,
+    year_min=2010,
+    year_max=2024,
+    min_complaints=5,
+    limit=10,
+):
+    """
+    Rank cars by reliability score.
+
+    Score formula:
+        For each car, compute a "penalty" score:
+            penalty = (complaints × w_complaints
+                     + crashes × w_crashes
+                     + fires × w_fires
+                     + injuries × w_injuries
+                     + recalls × w_recalls)
+
+        Then normalize across all cars (min-max) so penalty is 0-100.
+        Reliability score = 100 - normalized_penalty.
+
+    Why this works:
+        - User controls weights. Safety-focused user weights crashes/fires high.
+        - Reliability-focused user weights complaints high.
+        - All factors are visible and explainable (no black box).
+        - Cars with too few complaints (under min_complaints) are excluded
+          because their data isn't statistically meaningful.
+
+    Returns top N cars ranked by score, with full data for rendering.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Aggregate per (make, model, year): complaint count, crashes, fires, injuries
+    cursor.execute("""
+        SELECT make, model, model_year,
+               COUNT(*) as complaint_count,
+               SUM(crash) as crashes,
+               SUM(fire) as fires,
+               SUM(num_injuries) as injuries
+        FROM complaints
+        WHERE model_year BETWEEN ? AND ?
+        GROUP BY make, model, model_year
+        HAVING complaint_count >= ?
+    """, (int(year_min), int(year_max), int(min_complaints)))
+
+    cars = []
+    for row in cursor.fetchall():
+        cars.append({
+            "make": row["make"],
+            "model": row["model"],
+            "year": row["model_year"],
+            "complaints": row["complaint_count"],
+            "crashes": row["crashes"] or 0,
+            "fires": row["fires"] or 0,
+            "injuries": row["injuries"] or 0,
+            "recalls": 0,  # filled below
+        })
+
+    # Count recalls per car (if recalls table exists)
+    cursor.execute("""
+        SELECT name FROM sqlite_master
+        WHERE type='table' AND name='recalls'
+    """)
+    if cursor.fetchone():
+        cursor.execute("""
+            SELECT make, model, model_year, COUNT(*) as recall_count
+            FROM recalls
+            WHERE model_year BETWEEN ? AND ?
+            GROUP BY make, model, model_year
+        """, (int(year_min), int(year_max)))
+        recall_lookup = {
+            (row["make"], row["model"], row["model_year"]): row["recall_count"]
+            for row in cursor.fetchall()
+        }
+        for car in cars:
+            key = (car["make"], car["model"], car["year"])
+            car["recalls"] = recall_lookup.get(key, 0)
+
+    conn.close()
+
+    if not cars:
+        return []
+
+    # Compute raw penalty per car
+    for car in cars:
+        car["raw_penalty"] = (
+            car["complaints"] * w_complaints
+            + car["crashes"] * w_crashes
+            + car["fires"] * w_fires
+            + car["injuries"] * w_injuries
+            + car["recalls"] * w_recalls
+        )
+
+    # Normalize penalty to 0-100 using min-max scaling
+    min_penalty = min(c["raw_penalty"] for c in cars)
+    max_penalty = max(c["raw_penalty"] for c in cars)
+    penalty_range = max_penalty - min_penalty if max_penalty > min_penalty else 1
+
+    for car in cars:
+        normalized = ((car["raw_penalty"] - min_penalty) / penalty_range) * 100
+        car["reliability_score"] = round(100 - normalized, 1)
+
+    # Sort by score (highest reliability first)
+    cars.sort(key=lambda c: c["reliability_score"], reverse=True)
+
+    # Return top N
+    return cars[:int(limit)]

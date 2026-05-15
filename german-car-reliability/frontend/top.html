@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Top Reliable Cars - German Car Reliability</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav>
+        <div class="nav-inner">
+            <a href="/" class="logo">german car reliability</a>
+            <div class="nav-links">
+                <a href="/">Search</a>
+                <a href="/static/compare.html">Compare</a>
+                <a href="/static/top.html" class="active">Top reliable</a>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        <section class="hero">
+            <h1>The most reliable German cars.</h1>
+            <p class="subtitle">Ranked by complaint frequency, severity, and active recalls. Adjust the weights to match what matters to you.</p>
+        </section>
+
+        <section class="search-section">
+            <div class="search-box">
+                <h3 class="car-label">Year range</h3>
+                <div class="search-row">
+                    <div class="field">
+                        <label for="year-min">From</label>
+                        <select id="year-min">
+                            <option value="2010">2010</option>
+                            <option value="2011">2011</option>
+                            <option value="2012">2012</option>
+                            <option value="2013">2013</option>
+                            <option value="2014" selected>2014</option>
+                            <option value="2015">2015</option>
+                            <option value="2016">2016</option>
+                            <option value="2017">2017</option>
+                            <option value="2018">2018</option>
+                            <option value="2019">2019</option>
+                            <option value="2020">2020</option>
+                            <option value="2021">2021</option>
+                            <option value="2022">2022</option>
+                            <option value="2023">2023</option>
+                            <option value="2024">2024</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="year-max">To</label>
+                        <select id="year-max">
+                            <option value="2010">2010</option>
+                            <option value="2011">2011</option>
+                            <option value="2012">2012</option>
+                            <option value="2013">2013</option>
+                            <option value="2014">2014</option>
+                            <option value="2015">2015</option>
+                            <option value="2016">2016</option>
+                            <option value="2017">2017</option>
+                            <option value="2018">2018</option>
+                            <option value="2019">2019</option>
+                            <option value="2020">2020</option>
+                            <option value="2021">2021</option>
+                            <option value="2022">2022</option>
+                            <option value="2023">2023</option>
+                            <option value="2024" selected>2024</option>
+                        </select>
+                    </div>
+                </div>
+
+                <h3 class="car-label" style="margin-top: 28px;">What matters most to you</h3>
+                <p class="subtitle-small">Higher slider = bigger penalty when a car has that problem. Move sliders to re-rank.</p>
+
+                <div class="weight-sliders">
+                    <div class="slider-row">
+                        <label class="slider-label">Total complaints</label>
+                        <input type="range" id="w-complaints" min="0" max="10" value="1" step="0.5">
+                        <span class="slider-value" id="w-complaints-val">1.0</span>
+                    </div>
+                    <div class="slider-row">
+                        <label class="slider-label">Crashes</label>
+                        <input type="range" id="w-crashes" min="0" max="10" value="3" step="0.5">
+                        <span class="slider-value" id="w-crashes-val">3.0</span>
+                    </div>
+                    <div class="slider-row">
+                        <label class="slider-label">Fires</label>
+                        <input type="range" id="w-fires" min="0" max="10" value="5" step="0.5">
+                        <span class="slider-value" id="w-fires-val">5.0</span>
+                    </div>
+                    <div class="slider-row">
+                        <label class="slider-label">Injuries</label>
+                        <input type="range" id="w-injuries" min="0" max="10" value="4" step="0.5">
+                        <span class="slider-value" id="w-injuries-val">4.0</span>
+                    </div>
+                    <div class="slider-row">
+                        <label class="slider-label">Open recalls</label>
+                        <input type="range" id="w-recalls" min="0" max="10" value="2" step="0.5">
+                        <span class="slider-value" id="w-recalls-val">2.0</span>
+                    </div>
+                </div>
+
+                <div class="quick-presets">
+                    <button class="preset-btn" onclick="applyPreset('safety')">Prioritize safety</button>
+                    <button class="preset-btn" onclick="applyPreset('reliability')">Prioritize reliability</button>
+                    <button class="preset-btn" onclick="applyPreset('balanced')">Balanced</button>
+                </div>
+
+                <button onclick="loadTopCars()" style="margin-top: 24px;">Rank cars</button>
+            </div>
+        </section>
+
+        <section id="top-results" class="results">
+            <div class="loading">Adjust the sliders above and click Rank cars.</div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Data from <a href="https://www.nhtsa.gov" target="_blank">NHTSA</a> (National Highway Traffic Safety Administration). Public domain, updated daily.</p>
+    </footer>
+
+    <script src="/static/app.js"></script>
+    <script>
+        // === Live slider value display ===
+        const sliders = ["complaints", "crashes", "fires", "injuries", "recalls"];
+        sliders.forEach(name => {
+            const slider = document.getElementById(`w-${name}`);
+            const val = document.getElementById(`w-${name}-val`);
+            slider.addEventListener("input", () => {
+                val.textContent = parseFloat(slider.value).toFixed(1);
+            });
+        });
+
+        // === Preset buttons ===
+        function applyPreset(preset) {
+            const presets = {
+                safety:      { complaints: 0.5, crashes: 6, fires: 8, injuries: 7, recalls: 4 },
+                reliability: { complaints: 5,   crashes: 2, fires: 3, injuries: 2, recalls: 3 },
+                balanced:    { complaints: 1,   crashes: 3, fires: 5, injuries: 4, recalls: 2 },
+            };
+            const p = presets[preset];
+            sliders.forEach(name => {
+                const slider = document.getElementById(`w-${name}`);
+                slider.value = p[name];
+                document.getElementById(`w-${name}-val`).textContent = parseFloat(p[name]).toFixed(1);
+            });
+        }
+
+        // === Fetch and render top cars ===
+        async function loadTopCars() {
+            const container = document.getElementById("top-results");
+            container.innerHTML = '<div class="loading">Ranking cars...</div>';
+
+            const params = new URLSearchParams({
+                w_complaints: document.getElementById("w-complaints").value,
+                w_crashes: document.getElementById("w-crashes").value,
+                w_fires: document.getElementById("w-fires").value,
+                w_injuries: document.getElementById("w-injuries").value,
+                w_recalls: document.getElementById("w-recalls").value,
+                year_min: document.getElementById("year-min").value,
+                year_max: document.getElementById("year-max").value,
+                limit: 10,
+            });
+
+            const res = await fetch(`/api/top?${params}`);
+
+            if (!res.ok) {
+                container.innerHTML = '<div class="loading">Could not load rankings.</div>';
+                return;
+            }
+
+            const data = await res.json();
+            renderTopList(data, container);
+            container.scrollIntoView({ behavior: "smooth" });
+        }
+
+        function renderTopList(data, container) {
+            if (data.cars.length === 0) {
+                container.innerHTML = '<div class="loading">No cars match these filters.</div>';
+                return;
+            }
+
+            const cards = data.cars.map((car, i) => {
+                return `
+                    <div class="rank-card">
+                        <div class="rank-number">${i + 1}</div>
+                        <div class="rank-body">
+                            <div class="rank-header">
+                                <div class="rank-name">${car.year} ${car.make} ${car.model}</div>
+                                <div class="rank-score">
+                                    <div class="score-value">${car.reliability_score}</div>
+                                    <div class="score-label">reliability score</div>
+                                </div>
+                            </div>
+                            <div class="rank-stats">
+                                <div class="rank-stat">
+                                    <div class="stat-num">${car.complaints}</div>
+                                    <div class="stat-label">complaints</div>
+                                </div>
+                                <div class="rank-stat">
+                                    <div class="stat-num">${car.crashes}</div>
+                                    <div class="stat-label">crashes</div>
+                                </div>
+                                <div class="rank-stat">
+                                    <div class="stat-num">${car.fires}</div>
+                                    <div class="stat-label">fires</div>
+                                </div>
+                                <div class="rank-stat">
+                                    <div class="stat-num">${car.injuries}</div>
+                                    <div class="stat-label">injuries</div>
+                                </div>
+                                <div class="rank-stat">
+                                    <div class="stat-num">${car.recalls}</div>
+                                    <div class="stat-label">recalls</div>
+                                </div>
+                            </div>
+                            <a class="rank-link" href="/?make=${car.make}&model=${car.model}&year=${car.year}">View full details →</a>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = `
+                <div class="rank-intro">
+                    Top ${data.count} ranked from ${data.filters.year_min} to ${data.filters.year_max} model years.
+                </div>
+                ${cards}
+            `;
+        }
+    </script>
+</body>
+</html>
