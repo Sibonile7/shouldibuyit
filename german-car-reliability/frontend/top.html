@@ -23,12 +23,13 @@
     <main>
         <section class="hero">
             <h1>The most reliable German cars.</h1>
-            <p class="subtitle">Ranked by complaint frequency, severity, and active recalls. Adjust the weights to match what matters to you.</p>
+            <p class="subtitle">Ranked by real complaint data from the US government. Not opinions. Adjust the sliders to focus on what matters most to you.</p>
         </section>
 
         <section class="search-section">
             <div class="search-box">
                 <h3 class="car-label">Year range</h3>
+                <p class="section-explainer">Which model years do you want to compare?</p>
                 <div class="search-row">
                     <div class="field">
                         <label for="year-min">From</label>
@@ -73,40 +74,44 @@
                 </div>
 
                 <h3 class="car-label" style="margin-top: 28px;">What matters most to you</h3>
-                <p class="subtitle-small">Higher slider = bigger penalty when a car has that problem. Move sliders to re-rank.</p>
+                <p class="section-explainer">
+                    Move a slider right to penalize cars more for that type of problem.
+                    For example, if fires scare you more than anything else, move the fires slider all the way right.
+                    The ranking will change to show cars with zero or few fire reports at the top.
+                </p>
 
                 <div class="weight-sliders">
                     <div class="slider-row">
-                        <label class="slider-label">Total complaints</label>
+                        <label class="slider-label" title="Total number of problems reported by owners to the government.">Total complaints</label>
                         <input type="range" id="w-complaints" min="0" max="10" value="1" step="0.5">
                         <span class="slider-value" id="w-complaints-val">1.0</span>
                     </div>
                     <div class="slider-row">
-                        <label class="slider-label">Crashes</label>
+                        <label class="slider-label" title="Complaints where the owner reported a vehicle crash.">Crashes</label>
                         <input type="range" id="w-crashes" min="0" max="10" value="3" step="0.5">
                         <span class="slider-value" id="w-crashes-val">3.0</span>
                     </div>
                     <div class="slider-row">
-                        <label class="slider-label">Fires</label>
+                        <label class="slider-label" title="Complaints where the owner reported the vehicle catching fire.">Fires</label>
                         <input type="range" id="w-fires" min="0" max="10" value="5" step="0.5">
                         <span class="slider-value" id="w-fires-val">5.0</span>
                     </div>
                     <div class="slider-row">
-                        <label class="slider-label">Injuries</label>
+                        <label class="slider-label" title="Total number of people injured across all complaints for this car.">Injuries</label>
                         <input type="range" id="w-injuries" min="0" max="10" value="4" step="0.5">
                         <span class="slider-value" id="w-injuries-val">4.0</span>
                     </div>
                     <div class="slider-row">
-                        <label class="slider-label">Open recalls</label>
+                        <label class="slider-label" title="Number of official recalls. A recall means the manufacturer confirmed a defect and will fix it for free.">Recalls</label>
                         <input type="range" id="w-recalls" min="0" max="10" value="2" step="0.5">
                         <span class="slider-value" id="w-recalls-val">2.0</span>
                     </div>
                 </div>
 
                 <div class="quick-presets">
-                    <button class="preset-btn" onclick="applyPreset('safety')">Prioritize safety</button>
-                    <button class="preset-btn" onclick="applyPreset('reliability')">Prioritize reliability</button>
-                    <button class="preset-btn" onclick="applyPreset('balanced')">Balanced</button>
+                    <button class="preset-btn" onclick="applyPreset('safety')" title="Penalizes crashes, fires, and injuries heavily. Best for buyers whose top priority is avoiding dangerous defects.">Prioritize safety</button>
+                    <button class="preset-btn" onclick="applyPreset('reliability')" title="Penalizes total complaint volume heavily. Best for buyers who want the fewest problems overall.">Prioritize reliability</button>
+                    <button class="preset-btn" onclick="applyPreset('balanced')" title="A mix of both safety and reliability concerns.">Balanced</button>
                 </div>
 
                 <button onclick="loadTopCars()" style="margin-top: 24px;">Rank cars</button>
@@ -189,30 +194,30 @@
                         <div class="rank-number">${i + 1}</div>
                         <div class="rank-body">
                             <div class="rank-header">
-                                <div class="rank-name">${car.year} ${car.make} ${car.model}</div>
+                                <div class="rank-name">${car.year} ${esc(car.make)} ${esc(car.model)}</div>
                                 <div class="rank-score">
                                     <div class="score-value">${car.reliability_score}</div>
-                                    <div class="score-label">reliability score</div>
+                                    <div class="score-label">score out of 100</div>
                                 </div>
                             </div>
                             <div class="rank-stats">
-                                <div class="rank-stat">
+                                <div class="rank-stat" title="Total problems reported by owners to the US government.">
                                     <div class="stat-num">${car.complaints}</div>
                                     <div class="stat-label">complaints</div>
                                 </div>
-                                <div class="rank-stat">
+                                <div class="rank-stat" title="How many of those complaints involved a vehicle crash.">
                                     <div class="stat-num">${car.crashes}</div>
                                     <div class="stat-label">crashes</div>
                                 </div>
-                                <div class="rank-stat">
+                                <div class="rank-stat" title="How many complaints involved the vehicle catching fire.">
                                     <div class="stat-num">${car.fires}</div>
                                     <div class="stat-label">fires</div>
                                 </div>
-                                <div class="rank-stat">
+                                <div class="rank-stat" title="Total number of people injured across all complaints.">
                                     <div class="stat-num">${car.injuries}</div>
                                     <div class="stat-label">injuries</div>
                                 </div>
-                                <div class="rank-stat">
+                                <div class="rank-stat" title="Official recalls: the manufacturer confirmed a defect and will fix it for free at any dealer.">
                                     <div class="stat-num">${car.recalls}</div>
                                     <div class="stat-label">recalls</div>
                                 </div>
@@ -225,7 +230,12 @@
 
             container.innerHTML = `
                 <div class="rank-intro">
-                    Top ${data.count} ranked from ${data.filters.year_min} to ${data.filters.year_max} model years.
+                    Top ${data.count} German cars from ${data.filters.year_min} to ${data.filters.year_max}, ranked by your chosen priorities.
+                </div>
+                <div class="score-explainer">
+                    The score compares all German cars in this year range against each other.
+                    100 = fewest problems in the group. 0 = most problems.
+                    A high score does not mean zero issues. Always check the raw numbers.
                 </div>
                 ${cards}
             `;

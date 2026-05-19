@@ -362,6 +362,29 @@ footer {
 }
 footer a { color: var(--text-dim); }
 
+/* === EXPLAINER TEXT (plain-language help for users) === */
+.section-explainer {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.55;
+    margin-bottom: 16px;
+    max-width: 640px;
+}
+.score-explainer {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.55;
+    text-align: center;
+    margin-bottom: 28px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 14px 20px;
+    background: var(--highlight-bg);
+    border: 1px solid var(--highlight-border);
+    border-radius: var(--radius);
+}
+
 .loading {
     text-align: center;
     padding: 40px;
