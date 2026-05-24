@@ -411,9 +411,44 @@ button:disabled { opacity: 0.3; cursor: not-allowed; }
     margin-top: 36px;
     padding-top: 24px;
     border-top: 1px solid var(--border);
+    align-items: start;
 }
 .compare-detail-card {
     padding: 0;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+}
+
+/* Recalls section in compare view: full width, side by side */
+.compare-recalls-section {
+    margin-top: 36px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+}
+.compare-recalls-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    align-items: start;
+}
+.compare-recall-col {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+}
+.compare-recall-header {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
 }
 
 /* === EXPLAINER TEXT === */
@@ -574,6 +609,7 @@ footer a { color: var(--text-dim); }
     .compare-header-right .severity-row { justify-content: flex-start; }
     .compare-header-right .car-total { justify-content: flex-start; }
     .compare-details-grid { grid-template-columns: 1fr; }
+    .compare-recalls-grid { grid-template-columns: 1fr; }
     .aligned-row { grid-template-columns: 1fr 80px 1fr; gap: 4px; }
     .aligned-component { font-size: 9px; }
     .aligned-count { font-size: 11px; min-width: 50px; }
