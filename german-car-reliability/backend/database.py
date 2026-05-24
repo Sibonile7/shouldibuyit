@@ -2,7 +2,7 @@
 Database layer for the German car reliability API.
 
 Handles SQLite connection and all queries for complaints, recalls,
-and the new reliability ranking system.
+and the reliability ranking system.
 """
 
 import os
@@ -93,12 +93,13 @@ def get_car_summary(make, model, year):
     injuries = sum(r["num_injuries"] for r in rows)
     deaths = sum(r["num_deaths"] for r in rows)
 
+    # Only show first 3 complaints by default (user can load more)
     cursor.execute("""
         SELECT summary, component, crash, fire, date_filed
         FROM complaints
         WHERE make = ? AND model = ? AND model_year = ?
         ORDER BY date_filed DESC
-        LIMIT 5
+        LIMIT 3
     """, (make.upper(), model.upper(), int(year)))
 
     samples = []
@@ -174,7 +175,7 @@ def get_recalls_for_car(make, model, year):
 
 
 def get_complaints_by_component(make, model, year, component, limit=20, offset=0):
-    """Get complaints for a car filtered by component."""
+    """Get complaints for a car filtered by component, or all if component is 'ALL'."""
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -189,10 +190,14 @@ def get_complaints_by_component(make, model, year, component, limit=20, offset=0
     all_rows = cursor.fetchall()
     conn.close()
 
-    matching = [
-        row for row in all_rows
-        if row_matches_component(row["component"], component.upper())
-    ]
+    # If component is "ALL", return everything (no filter)
+    if component.upper() == "ALL":
+        matching = list(all_rows)
+    else:
+        matching = [
+            row for row in all_rows
+            if row_matches_component(row["component"], component.upper())
+        ]
 
     total_matching = len(matching)
     page = matching[offset:offset + limit]
@@ -304,32 +309,12 @@ def get_top_reliable_cars(
     limit=10,
 ):
     """
-    Rank cars by reliability score.
-
-    Score formula:
-        For each car, compute a "penalty" score:
-            penalty = (complaints × w_complaints
-                     + crashes × w_crashes
-                     + fires × w_fires
-                     + injuries × w_injuries
-                     + recalls × w_recalls)
-
-        Then normalize across all cars (min-max) so penalty is 0-100.
-        Reliability score = 100 - normalized_penalty.
-
-    Why this works:
-        - User controls weights. Safety-focused user weights crashes/fires high.
-        - Reliability-focused user weights complaints high.
-        - All factors are visible and explainable (no black box).
-        - Cars with too few complaints (under min_complaints) are excluded
-          because their data isn't statistically meaningful.
-
-    Returns top N cars ranked by score, with full data for rendering.
+    Rank cars by reliability score using weighted penalty formula.
+    Score = 100 - normalized_penalty. Higher is better.
     """
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Aggregate per (make, model, year): complaint count, crashes, fires, injuries
     cursor.execute("""
         SELECT make, model, model_year,
                COUNT(*) as complaint_count,
@@ -352,10 +337,9 @@ def get_top_reliable_cars(
             "crashes": row["crashes"] or 0,
             "fires": row["fires"] or 0,
             "injuries": row["injuries"] or 0,
-            "recalls": 0,  # filled below
+            "recalls": 0,
         })
 
-    # Count recalls per car (if recalls table exists)
     cursor.execute("""
         SELECT name FROM sqlite_master
         WHERE type='table' AND name='recalls'
@@ -380,7 +364,6 @@ def get_top_reliable_cars(
     if not cars:
         return []
 
-    # Compute raw penalty per car
     for car in cars:
         car["raw_penalty"] = (
             car["complaints"] * w_complaints
@@ -390,7 +373,6 @@ def get_top_reliable_cars(
             + car["recalls"] * w_recalls
         )
 
-    # Normalize penalty to 0-100 using min-max scaling
     min_penalty = min(c["raw_penalty"] for c in cars)
     max_penalty = max(c["raw_penalty"] for c in cars)
     penalty_range = max_penalty - min_penalty if max_penalty > min_penalty else 1
@@ -399,8 +381,5 @@ def get_top_reliable_cars(
         normalized = ((car["raw_penalty"] - min_penalty) / penalty_range) * 100
         car["reliability_score"] = round(100 - normalized, 1)
 
-    # Sort by score (highest reliability first)
     cars.sort(key=lambda c: c["reliability_score"], reverse=True)
-
-    # Return top N
     return cars[:int(limit)]

@@ -2,21 +2,15 @@
  * German Car Reliability - Frontend Logic
  *
  * Features:
- *   - Dropdown population from the API
- *   - Search for a single car, compare two cars
- *   - Bar charts with clickable component filter
- *   - Load more pagination
- *   - Component tag splitting with active filter highlight
- *   - Recall cards with severity flags
- *   - Plain-language explainers so users understand every section
- *   - XSS protection via esc() helper
+ *   - Bar charts with percentages: "ENGINE: 56 (37%)"
+ *   - Only 3 complaints shown by default, with "load more"
+ *   - Recalls and complaints in clearly separated sections
+ *   - Aligned comparison: same components on the same row
+ *   - XSS protection, component pill highlighting
  */
 
 
 // === XSS PROTECTION ===
-// All text from the database (complaints, recalls, component names) passes
-// through this before being injected into innerHTML. Prevents any HTML
-// or script tags in NHTSA data from executing in the browser.
 function esc(str) {
     return String(str ?? '')
         .replace(/&/g, '&amp;')
@@ -27,7 +21,7 @@ function esc(str) {
 }
 
 
-// === COMPONENT NORMALIZATION (mirror of backend) ===
+// === COMPONENT NORMALIZATION ===
 const COMPONENT_CLEANUP = {
     "ENGINE AND ENGINE COOLING": "ENGINE",
     "SERVICE BRAKES": "BRAKES",
@@ -85,10 +79,7 @@ async function loadModels() {
     yearSel.disabled = true;
     btn.disabled = true;
 
-    if (!make) {
-        modelSel.disabled = true;
-        return;
-    }
+    if (!make) { modelSel.disabled = true; return; }
 
     const res = await fetch("/api/models/" + make);
     const models = await res.json();
@@ -111,10 +102,7 @@ async function loadYears() {
     yearSel.innerHTML = '<option value="">Select year</option>';
     btn.disabled = true;
 
-    if (!model) {
-        yearSel.disabled = true;
-        return;
-    }
+    if (!model) { yearSel.disabled = true; return; }
 
     const res = await fetch("/api/years/" + make + "/" + model);
     const years = await res.json();
@@ -125,9 +113,7 @@ async function loadYears() {
         yearSel.appendChild(opt);
     });
     yearSel.disabled = false;
-    yearSel.onchange = () => {
-        btn.disabled = !yearSel.value;
-    };
+    yearSel.onchange = () => { btn.disabled = !yearSel.value; };
 }
 
 
@@ -160,7 +146,6 @@ async function searchCar() {
 function renderComponentTags(rawComponentString, activeFilter = null) {
     const parts = splitComponents(rawComponentString);
     if (parts.length === 0) return '';
-
     return parts.map(part => {
         const cleaned = cleanComponent(part);
         const isMatch = activeFilter && cleaned === activeFilter;
@@ -176,7 +161,6 @@ function renderSampleHTML(s, activeFilter = null) {
     if (s.injuries && s.injuries > 0) {
         tags.push(`<span class="sample-crash">${esc(s.injuries)} INJ</span>`);
     }
-
     const componentPills = renderComponentTags(s.component, activeFilter);
     const dateTag = s.date_filed ? `<span class="sample-tag">${esc(s.date_filed)}</span>` : '';
 
@@ -192,7 +176,7 @@ function renderSampleHTML(s, activeFilter = null) {
     `;
 }
 
-function renderRecallsHTML(recalls) {
+function renderRecallsHTML(recalls, containerId) {
     if (!recalls || recalls.length === 0) {
         return `
             <div class="recalls-section">
@@ -205,7 +189,7 @@ function renderRecallsHTML(recalls) {
         `;
     }
 
-    const recallsList = recalls.map(r => {
+    const renderOneRecall = (r) => {
         const flags = [];
         if (r.park_it) flags.push('<span class="recall-flag flag-severe" title="Do not drive this car until the recall repair is done.">STOP DRIVING</span>');
         if (r.park_outside) flags.push('<span class="recall-flag flag-severe" title="Do not park this car in a garage. There is a fire risk even when parked.">DO NOT GARAGE</span>');
@@ -237,28 +221,51 @@ function renderRecallsHTML(recalls) {
                 ` : ''}
             </div>
         `;
-    }).join('');
+    };
+
+    // Show first 3, hide the rest behind a button
+    const visible = recalls.slice(0, 3).map(renderOneRecall).join('');
+    const hidden = recalls.slice(3);
+    const recallsId = containerId ? `recalls-${containerId}` : `recalls-${Math.random().toString(36).slice(2, 8)}`;
+
+    let loadMoreHTML = '';
+    if (hidden.length > 0) {
+        // Store hidden recalls as a data attribute so we can render on click
+        const hiddenHTML = hidden.map(renderOneRecall).join('');
+        loadMoreHTML = `
+            <div id="hidden-${recallsId}" style="display:none;">${hiddenHTML}</div>
+            <button class="load-more-btn" onclick="showMoreRecalls('${recallsId}')">
+                Load more (${hidden.length} remaining recall${hidden.length === 1 ? '' : 's'})
+            </button>
+        `;
+    }
 
     return `
-        <div class="recalls-section">
+        <div class="recalls-section" id="${recallsId}">
             <div class="samples-title">${recalls.length} official recall${recalls.length === 1 ? '' : 's'}</div>
             <div class="section-explainer">
                 A recall means the manufacturer confirmed a safety defect in this car. The fix is free at any authorized dealer.
                 If you're buying this car used, ask the seller if these recalls have been completed.
             </div>
-            ${recallsList}
+            ${visible}
+            ${loadMoreHTML}
         </div>
     `;
 }
 
+
+// === RENDER CAR CARD (single view) ===
+
 function renderCarCard(car, mode) {
     const cardId = `card-${car.make}-${car.model}-${car.year}`.replace(/\s+/g, "_");
     const maxCount = car.top_issues.length > 0 ? car.top_issues[0].count : 1;
+    const totalComplaints = car.total_complaints || 1;
 
     let issuesHTML = "";
     if (car.top_issues.length > 0) {
         car.top_issues.forEach((issue, i) => {
             const pct = (issue.count / maxCount) * 100;
+            const percent = Math.round((issue.count / totalComplaints) * 100);
             const safeComponent = esc(issue.component);
             issuesHTML += `
                 <div class="issue-row clickable"
@@ -270,7 +277,7 @@ function renderCarCard(car, mode) {
                     <div class="issue-bar-track">
                         <div class="issue-bar-fill bar-${i + 1}" style="width: ${pct}%"></div>
                     </div>
-                    <div class="issue-count">${issue.count}</div>
+                    <div class="issue-count">${issue.count} <span class="issue-pct">(${percent}%)</span></div>
                 </div>
             `;
         });
@@ -281,6 +288,7 @@ function renderCarCard(car, mode) {
         .join('');
 
     const recallsCount = (car.recalls || []).length;
+    const remainingComplaints = car.total_complaints - car.sample_complaints.length;
 
     return `
         <div class="car-card" id="${cardId}">
@@ -303,8 +311,6 @@ function renderCarCard(car, mode) {
                 ${issuesHTML}
             ` : ''}
 
-            ${renderRecallsHTML(car.recalls)}
-
             <div class="samples-section">
                 <div class="samples-header">
                     <div class="samples-title">Owner complaints</div>
@@ -314,6 +320,157 @@ function renderCarCard(car, mode) {
                 </div>
                 <div class="samples-list" id="samples-${cardId}">
                     ${samplesHTML}
+                    ${remainingComplaints > 0 ? `
+                        <button class="load-more-btn" onclick="loadAllComplaints('${esc(car.make)}', '${esc(car.model)}', ${car.year}, '${esc(cardId)}')">
+                            Load more (${remainingComplaints} remaining)
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+
+            ${renderRecallsHTML(car.recalls, cardId)}
+        </div>
+    `;
+}
+
+
+// === ALIGNED COMPARISON RENDERING ===
+
+function renderAlignedComparison(cars) {
+    /*
+     * Takes two car objects and renders them with components aligned on the same row.
+     * If BMW has ENGINE at 56 and Mercedes has ENGINE at 12, they appear side by side.
+     * Components that only appear in one car show 0 for the other.
+     */
+    if (cars.length !== 2) {
+        // Fallback: render as separate cards
+        return cars.map(c => renderCarCard(c, "compare")).join('');
+    }
+
+    const car1 = cars[0];
+    const car2 = cars[1];
+
+    // Build lookup of component -> count for each car
+    const issues1 = {};
+    const issues2 = {};
+    const total1 = car1.total_complaints || 1;
+    const total2 = car2.total_complaints || 1;
+
+    (car1.top_issues || []).forEach(i => { issues1[i.component] = i.count; });
+    (car2.top_issues || []).forEach(i => { issues2[i.component] = i.count; });
+
+    // Get all unique components, sorted by max count across both cars
+    const allComponents = [...new Set([...Object.keys(issues1), ...Object.keys(issues2)])];
+    allComponents.sort((a, b) => {
+        const maxA = Math.max(issues1[a] || 0, issues2[a] || 0);
+        const maxB = Math.max(issues1[b] || 0, issues2[b] || 0);
+        return maxB - maxA;
+    });
+
+    // Find max count for bar width scaling
+    const globalMax = Math.max(
+        ...allComponents.map(c => Math.max(issues1[c] || 0, issues2[c] || 0)),
+        1
+    );
+
+    // Build aligned rows
+    const alignedRows = allComponents.map((comp, i) => {
+        const count1 = issues1[comp] || 0;
+        const count2 = issues2[comp] || 0;
+        const pct1 = (count1 / globalMax) * 100;
+        const pct2 = (count2 / globalMax) * 100;
+        const percent1 = Math.round((count1 / total1) * 100);
+        const percent2 = Math.round((count2 / total2) * 100);
+        const barClass = `bar-${Math.min(i + 1, 10)}`;
+
+        return `
+            <div class="aligned-row">
+                <div class="aligned-cell aligned-left">
+                    <div class="aligned-count ${count1 === 0 ? 'zero' : ''}">${count1} <span class="issue-pct">(${count1 > 0 ? percent1 : 0}%)</span></div>
+                    <div class="aligned-bar-track">
+                        <div class="aligned-bar-fill-left ${barClass}" style="width: ${pct1}%"></div>
+                    </div>
+                </div>
+                <div class="aligned-component">${esc(comp)}</div>
+                <div class="aligned-cell aligned-right">
+                    <div class="aligned-bar-track">
+                        <div class="aligned-bar-fill-right ${barClass}" style="width: ${pct2}%"></div>
+                    </div>
+                    <div class="aligned-count ${count2 === 0 ? 'zero' : ''}">${count2} <span class="issue-pct">(${count2 > 0 ? percent2 : 0}%)</span></div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // Build header for each car
+    const recalls1 = (car1.recalls || []).length;
+    const recalls2 = (car2.recalls || []).length;
+
+    const cardId1 = `card-${car1.make}-${car1.model}-${car1.year}`.replace(/\s+/g, "_");
+    const cardId2 = `card-${car2.make}-${car2.model}-${car2.year}`.replace(/\s+/g, "_");
+
+    return `
+        <div class="compare-aligned">
+            <div class="compare-headers">
+                <div class="compare-header-left">
+                    <div class="car-name">${car1.year} ${esc(car1.make)} ${esc(car1.model)}</div>
+                    <div class="car-total">
+                        <strong>${car1.total_complaints}</strong> complaints
+                        ${recalls1 > 0 ? `<span class="recall-badge">${recalls1} recall${recalls1 === 1 ? '' : 's'}</span>` : ''}
+                    </div>
+                    <div class="severity-row">
+                        ${car1.severity.crashes > 0 ? `<div class="badge badge-crash">${car1.severity.crashes} crash${car1.severity.crashes === 1 ? '' : 'es'}</div>` : ""}
+                        ${car1.severity.fires > 0 ? `<div class="badge badge-fire">${car1.severity.fires} fire${car1.severity.fires === 1 ? '' : 's'}</div>` : ""}
+                        ${car1.severity.injuries > 0 ? `<div class="badge badge-injury">${car1.severity.injuries} injur${car1.severity.injuries === 1 ? 'y' : 'ies'}</div>` : ""}
+                    </div>
+                </div>
+                <div class="compare-header-right">
+                    <div class="car-name">${car2.year} ${esc(car2.make)} ${esc(car2.model)}</div>
+                    <div class="car-total">
+                        <strong>${car2.total_complaints}</strong> complaints
+                        ${recalls2 > 0 ? `<span class="recall-badge">${recalls2} recall${recalls2 === 1 ? '' : 's'}</span>` : ''}
+                    </div>
+                    <div class="severity-row">
+                        ${car2.severity.crashes > 0 ? `<div class="badge badge-crash">${car2.severity.crashes} crash${car2.severity.crashes === 1 ? '' : 'es'}</div>` : ""}
+                        ${car2.severity.fires > 0 ? `<div class="badge badge-fire">${car2.severity.fires} fire${car2.severity.fires === 1 ? '' : 's'}</div>` : ""}
+                        ${car2.severity.injuries > 0 ? `<div class="badge badge-injury">${car2.severity.injuries} injur${car2.severity.injuries === 1 ? 'y' : 'ies'}</div>` : ""}
+                    </div>
+                </div>
+            </div>
+
+            <div class="aligned-section-title">Problem comparison: same issue, side by side</div>
+            <div class="section-explainer" style="text-align:center;">
+                Each row shows the same component for both cars. Bigger bar = more complaints. Percentage shows how much of that car's total complaints are for this component.
+            </div>
+
+            ${alignedRows}
+
+            <div class="compare-details-grid">
+                <div class="compare-detail-card" id="${cardId1}">
+                    <div class="samples-title">${esc(car1.make)} ${esc(car1.model)} owner complaints</div>
+                    <div class="section-explainer">Reports filed by real car owners to the US government.</div>
+                    <div class="samples-list" id="samples-${cardId1}">
+                        ${car1.sample_complaints.map(s => renderSampleHTML(s, null)).join('')}
+                        ${car1.total_complaints > car1.sample_complaints.length ? `
+                            <button class="load-more-btn" onclick="loadAllComplaints('${esc(car1.make)}', '${esc(car1.model)}', ${car1.year}, '${esc(cardId1)}')">
+                                Load more (${car1.total_complaints - car1.sample_complaints.length} remaining)
+                            </button>
+                        ` : ''}
+                    </div>
+                    ${renderRecallsHTML(car1.recalls, cardId1)}
+                </div>
+                <div class="compare-detail-card" id="${cardId2}">
+                    <div class="samples-title">${esc(car2.make)} ${esc(car2.model)} owner complaints</div>
+                    <div class="section-explainer">Reports filed by real car owners to the US government.</div>
+                    <div class="samples-list" id="samples-${cardId2}">
+                        ${car2.sample_complaints.map(s => renderSampleHTML(s, null)).join('')}
+                        ${car2.total_complaints > car2.sample_complaints.length ? `
+                            <button class="load-more-btn" onclick="loadAllComplaints('${esc(car2.make)}', '${esc(car2.model)}', ${car2.year}, '${esc(cardId2)}')">
+                                Load more (${car2.total_complaints - car2.sample_complaints.length} remaining)
+                            </button>
+                        ` : ''}
+                    </div>
+                    ${renderRecallsHTML(car2.recalls, cardId2)}
                 </div>
             </div>
         </div>
@@ -321,7 +478,7 @@ function renderCarCard(car, mode) {
 }
 
 
-// === CLICK HANDLER FOR BARS (uses data-* attributes, not inline onclick) ===
+// === CLICK HANDLER FOR BARS ===
 
 document.addEventListener("click", function(e) {
     const row = e.target.closest(".issue-row.clickable");
@@ -333,6 +490,69 @@ document.addEventListener("click", function(e) {
 });
 
 
+// === SHOW MORE RECALLS ===
+
+function showMoreRecalls(recallsId) {
+    const section = document.getElementById(recallsId);
+    if (!section) return;
+    const hidden = document.getElementById(`hidden-${recallsId}`);
+    const btn = section.querySelector(".load-more-btn");
+    if (hidden) {
+        hidden.style.display = "block";
+    }
+    if (btn) btn.remove();
+}
+
+
+// === LOAD ALL COMPLAINTS (from the 3-default view) ===
+
+async function loadAllComplaints(make, model, year, cardId) {
+    const samplesList = document.getElementById(`samples-${cardId}`);
+    samplesList.innerHTML = '<div class="loading">Loading...</div>';
+
+    // Fetch all complaints (no component filter, just paginated)
+    const url = `/api/car/${make}/${model}/${year}`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    // Show first 20 of all complaints
+    const allSamples = data.sample_complaints || [];
+
+    // Actually we need the component endpoint without a filter
+    // Fetch first 20 using the full car endpoint won't give us all
+    // Let's use a generic component fetch
+    const compUrl = `/api/car/${make}/${model}/${year}/component/ALL?limit=20&offset=0`;
+    const compRes = await fetch(compUrl);
+
+    if (!compRes.ok) {
+        // Fallback: show what we have from the summary
+        samplesList.innerHTML = allSamples.map(s => renderSampleHTML(s, null)).join('');
+        return;
+    }
+
+    const compData = await compRes.json();
+
+    filterState[cardId] = {
+        make, model, year,
+        component: "ALL",
+        offset: compData.complaints.length,
+        total: compData.total_matching,
+    };
+
+    samplesList.innerHTML = compData.complaints
+        .map(c => renderSampleHTML(c, null))
+        .join('');
+
+    if (compData.has_more) {
+        const loadMore = document.createElement("button");
+        loadMore.className = "load-more-btn";
+        loadMore.textContent = `Load more (${compData.total_matching - compData.complaints.length} remaining)`;
+        loadMore.onclick = () => loadMoreComplaints(cardId);
+        samplesList.appendChild(loadMore);
+    }
+}
+
+
 // === FILTER BY COMPONENT ===
 
 const filterState = {};
@@ -340,6 +560,7 @@ const filterState = {};
 async function filterByComponent(make, model, year, component, cardId) {
     const samplesList = document.getElementById(`samples-${cardId}`);
     const headerEl = document.querySelector(`#${cardId} .samples-header`);
+    if (!samplesList) return;
 
     samplesList.innerHTML = '<div class="loading">Loading...</div>';
 
@@ -359,14 +580,16 @@ async function filterByComponent(make, model, year, component, cardId) {
         total: data.total_matching,
     };
 
-    headerEl.innerHTML = `
-        <div class="samples-title">
-            ${data.total_matching} ${esc(component)} complaint${data.total_matching === 1 ? '' : 's'}
-        </div>
-        <button class="reset-filter" onclick="resetFilter('${esc(make)}', '${esc(model)}', ${year}, '${esc(cardId)}')">
-            Show all
-        </button>
-    `;
+    if (headerEl) {
+        headerEl.innerHTML = `
+            <div class="samples-title">
+                ${data.total_matching} ${esc(component)} complaint${data.total_matching === 1 ? '' : 's'}
+            </div>
+            <button class="reset-filter" onclick="resetFilter('${esc(make)}', '${esc(model)}', ${year}, '${esc(cardId)}')">
+                Show all
+            </button>
+        `;
+    }
 
     samplesList.innerHTML = data.complaints
         .map(c => renderSampleHTML(c, component.toUpperCase()))
@@ -391,10 +614,12 @@ async function loadMoreComplaints(cardId) {
 
     const url = `/api/car/${state.make}/${state.model}/${state.year}/component/${state.component}?limit=20&offset=${state.offset}`;
     const res = await fetch(url);
-    const data = await res.json();
 
+    if (!res.ok) return;
+
+    const data = await res.json();
     const newHTML = data.complaints
-        .map(c => renderSampleHTML(c, state.component.toUpperCase()))
+        .map(c => renderSampleHTML(c, state.component === "ALL" ? null : state.component.toUpperCase()))
         .join('');
     samplesList.insertAdjacentHTML("beforeend", newHTML);
 
@@ -412,17 +637,29 @@ async function loadMoreComplaints(cardId) {
 async function resetFilter(make, model, year, cardId) {
     const samplesList = document.getElementById(`samples-${cardId}`);
     const headerEl = document.querySelector(`#${cardId} .samples-header`);
+    if (!samplesList) return;
 
     samplesList.innerHTML = '<div class="loading">Loading...</div>';
 
     const res = await fetch(`/api/car/${make}/${model}/${year}`);
     const data = await res.json();
 
-    headerEl.innerHTML = '<div class="samples-title">Owner complaints</div>';
+    if (headerEl) {
+        headerEl.innerHTML = '<div class="samples-title">Owner complaints</div>';
+    }
 
     samplesList.innerHTML = data.sample_complaints
         .map(s => renderSampleHTML(s, null))
         .join('');
+
+    const remaining = data.total_complaints - data.sample_complaints.length;
+    if (remaining > 0) {
+        const loadMore = document.createElement("button");
+        loadMore.className = "load-more-btn";
+        loadMore.textContent = `Load more (${remaining} remaining)`;
+        loadMore.onclick = () => loadAllComplaints(make, model, year, cardId);
+        samplesList.appendChild(loadMore);
+    }
 
     delete filterState[cardId];
 }

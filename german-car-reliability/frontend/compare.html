@@ -23,7 +23,7 @@
     <main>
         <section class="hero">
             <h1>Compare side by side.</h1>
-            <p class="subtitle">Same database. Same methodology. No bias.</p>
+            <p class="subtitle">Same problems, same row. See which car has more of each issue at a glance.</p>
         </section>
 
         <section class="search-section">
@@ -152,21 +152,15 @@
             const car1 = `${document.getElementById("make1").value}/${document.getElementById("model1").value}/${document.getElementById("year1").value}`;
             const car2 = `${document.getElementById("make2").value}/${document.getElementById("model2").value}/${document.getElementById("year2").value}`;
 
+            const container = document.getElementById("compare-results");
+            container.classList.remove("hidden");
+            container.innerHTML = '<div class="loading">Comparing...</div>';
+
             const res = await fetch(`/api/compare?cars=${car1},${car2}`);
             const data = await res.json();
 
-            const container = document.getElementById("compare-results");
-            container.classList.remove("hidden");
-            container.innerHTML = "";
-
-            const grid = document.createElement("div");
-            grid.className = "compare-grid";
-
-            data.forEach(car => {
-                grid.innerHTML += renderCarCard(car, "compare");
-            });
-
-            container.appendChild(grid);
+            // Use the new aligned comparison rendering
+            container.innerHTML = renderAlignedComparison(data);
             container.scrollIntoView({ behavior: "smooth" });
         }
     </script>
