@@ -9,80 +9,37 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
-    <nav>
-        <div class="nav-inner">
-            <a href="/" class="logo">german car reliability</a>
-            <div class="nav-links">
-                <a href="/">Search</a>
-                <a href="/static/compare.html" class="active">Compare</a>
-                <a href="/static/top.html">Top reliable</a>
-            </div>
-        </div>
-    </nav>
-
+    <nav><div class="nav-inner"><a href="/" class="logo">german car reliability</a><div class="nav-links"><a href="/">Search</a><a href="/static/compare.html" class="active">Compare</a><a href="/static/top.html">Top ranked</a></div></div></nav>
     <main>
-        <section class="hero">
-            <h1>Compare side by side.</h1>
-            <p class="subtitle">Same problems, same row. See which car has more of each issue at a glance.</p>
-        </section>
-
-        <section class="search-section">
-            <div class="search-box">
-                <h3 class="car-label">Car 1</h3>
-                <div class="search-row">
-                    <div class="field">
-                        <label for="make1">Make</label>
-                        <select id="make1" onchange="loadModelsFor(1)">
-                            <option value="">Select make</option>
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label for="model1">Model</label>
-                        <select id="model1" onchange="loadYearsFor(1)" disabled>
-                            <option value="">Select model</option>
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label for="year1">Year</label>
-                        <select id="year1" disabled>
-                            <option value="">Select year</option>
-                        </select>
-                    </div>
-                </div>
-
-                <h3 class="car-label">Car 2</h3>
-                <div class="search-row">
-                    <div class="field">
-                        <label for="make2">Make</label>
-                        <select id="make2" onchange="loadModelsFor(2)">
-                            <option value="">Select make</option>
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label for="model2">Model</label>
-                        <select id="model2" onchange="loadYearsFor(2)" disabled>
-                            <option value="">Select model</option>
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label for="year2">Year</label>
-                        <select id="year2" disabled>
-                            <option value="">Select year</option>
-                        </select>
-                    </div>
-                </div>
-
-                <button id="compare-btn" onclick="compareCars()" disabled>Compare</button>
+        <section class="hero"><h1>Compare side by side.</h1><p class="subtitle">Same problems, same row. See which car has more of each issue at a glance.</p></section>
+        <section class="search-section"><div class="search-box">
+            <h3 class="car-label">Car 1</h3>
+            <div class="search-row">
+                <div class="field"><label for="make1">Make</label><select id="make1" onchange="loadModelsFor(1)"><option value="">Select make</option></select></div>
+                <div class="field"><label for="model1">Model</label><select id="model1" onchange="loadYearsFor(1)" disabled><option value="">Select model</option></select></div>
+                <div class="field"><label for="year1">Year</label><select id="year1" disabled><option value="">Select year</option></select></div>
             </div>
-        </section>
-
+            <h3 class="car-label">Car 2</h3>
+            <div class="search-row">
+                <div class="field"><label for="make2">Make</label><select id="make2" onchange="loadModelsFor(2)"><option value="">Select make</option></select></div>
+                <div class="field"><label for="model2">Model</label><select id="model2" onchange="loadYearsFor(2)" disabled><option value="">Select model</option></select></div>
+                <div class="field"><label for="year2">Year</label><select id="year2" disabled><option value="">Select year</option></select></div>
+            </div>
+            <button id="compare-btn" onclick="compareCars()" disabled>Compare</button>
+        </div></section>
+        <div id="share-link" class="share-link-box" style="display:none;">
+            <div class="section-explainer">Share this comparison:</div>
+            <input type="text" id="share-url" class="share-input" readonly onclick="this.select()">
+        </div>
         <section id="compare-results" class="results hidden"></section>
     </main>
-
     <footer>
-        <p>Data from <a href="https://www.nhtsa.gov" target="_blank">NHTSA</a> (National Highway Traffic Safety Administration). Public domain, updated daily.</p>
+        <div class="data-limitations">
+            <div class="samples-title">Data limitations</div>
+            Based on US NHTSA data. Complaints are owner-reported and not independently verified. Not adjusted for number of cars sold. Does not include maintenance costs or repair bills. German and European market versions may differ. Always inspect the exact car before buying.
+        </div>
+        <div class="footer-source">Source: NHTSA (National Highway Traffic Safety Administration). Public domain. Data last updated: May 2025.</div>
     </footer>
-
     <script src="/static/app.js"></script>
     <script>
         window.addEventListener("DOMContentLoaded", async () => {
@@ -90,78 +47,48 @@
             const makes = await res.json();
             [1, 2].forEach(n => {
                 const sel = document.getElementById("make" + n);
-                makes.forEach(m => {
-                    const opt = document.createElement("option");
-                    opt.value = m;
-                    opt.textContent = m;
-                    sel.appendChild(opt);
-                });
+                makes.forEach(m => { const o = document.createElement("option"); o.value = m; o.textContent = m; sel.appendChild(o); });
             });
+            const params = new URLSearchParams(window.location.search);
+            const c1 = params.get("car1"), c2 = params.get("car2");
+            if (c1 && c2) {
+                const [m1,mo1,y1] = c1.split("/"), [m2,mo2,y2] = c2.split("/");
+                if (m1&&mo1&&y1&&m2&&mo2&&y2) {
+                    setTimeout(async () => {
+                        document.getElementById("make1").value=m1; await loadModelsFor(1);
+                        document.getElementById("model1").value=mo1; await loadYearsFor(1);
+                        document.getElementById("year1").value=y1;
+                        document.getElementById("make2").value=m2; await loadModelsFor(2);
+                        document.getElementById("model2").value=mo2; await loadYearsFor(2);
+                        document.getElementById("year2").value=y2;
+                        document.getElementById("compare-btn").disabled=false; compareCars();
+                    }, 400);
+                }
+            }
         });
-
         async function loadModelsFor(n) {
-            const make = document.getElementById("make" + n).value;
-            const modelSel = document.getElementById("model" + n);
-            const yearSel = document.getElementById("year" + n);
-            modelSel.innerHTML = '<option value="">Select model</option>';
-            yearSel.innerHTML = '<option value="">Select year</option>';
-            yearSel.disabled = true;
-
-            if (!make) { modelSel.disabled = true; return; }
-
-            const res = await fetch("/api/models/" + make);
-            const models = await res.json();
-            models.forEach(m => {
-                const opt = document.createElement("option");
-                opt.value = m;
-                opt.textContent = m;
-                modelSel.appendChild(opt);
-            });
-            modelSel.disabled = false;
-            checkCompareReady();
+            const make=document.getElementById("make"+n).value, ms=document.getElementById("model"+n), ys=document.getElementById("year"+n);
+            ms.innerHTML='<option value="">Select model</option>'; ys.innerHTML='<option value="">Select year</option>'; ys.disabled=true;
+            if (!make) { ms.disabled=true; return; }
+            (await (await fetch("/api/models/"+make)).json()).forEach(m => { const o=document.createElement("option"); o.value=m; o.textContent=m; ms.appendChild(o); });
+            ms.disabled=false; checkCompareReady();
         }
-
         async function loadYearsFor(n) {
-            const make = document.getElementById("make" + n).value;
-            const model = document.getElementById("model" + n).value;
-            const yearSel = document.getElementById("year" + n);
-            yearSel.innerHTML = '<option value="">Select year</option>';
-
-            if (!model) { yearSel.disabled = true; return; }
-
-            const res = await fetch("/api/years/" + make + "/" + model);
-            const years = await res.json();
-            years.forEach(y => {
-                const opt = document.createElement("option");
-                opt.value = y;
-                opt.textContent = y;
-                yearSel.appendChild(opt);
-            });
-            yearSel.disabled = false;
-            yearSel.onchange = checkCompareReady;
-            checkCompareReady();
+            const make=document.getElementById("make"+n).value, model=document.getElementById("model"+n).value, ys=document.getElementById("year"+n);
+            ys.innerHTML='<option value="">Select year</option>';
+            if (!model) { ys.disabled=true; return; }
+            (await (await fetch("/api/years/"+make+"/"+model)).json()).forEach(y => { const o=document.createElement("option"); o.value=y; o.textContent=y; ys.appendChild(o); });
+            ys.disabled=false; ys.onchange=checkCompareReady; checkCompareReady();
         }
-
-        function checkCompareReady() {
-            const ready = document.getElementById("year1").value
-                       && document.getElementById("year2").value;
-            document.getElementById("compare-btn").disabled = !ready;
-        }
-
+        function checkCompareReady() { document.getElementById("compare-btn").disabled = !(document.getElementById("year1").value && document.getElementById("year2").value); }
         async function compareCars() {
-            const car1 = `${document.getElementById("make1").value}/${document.getElementById("model1").value}/${document.getElementById("year1").value}`;
-            const car2 = `${document.getElementById("make2").value}/${document.getElementById("model2").value}/${document.getElementById("year2").value}`;
-
-            const container = document.getElementById("compare-results");
-            container.classList.remove("hidden");
-            container.innerHTML = '<div class="loading">Comparing...</div>';
-
-            const res = await fetch(`/api/compare?cars=${car1},${car2}`);
-            const data = await res.json();
-
-            // Use the new aligned comparison rendering
-            container.innerHTML = renderAlignedComparison(data);
-            container.scrollIntoView({ behavior: "smooth" });
+            const m1=document.getElementById("make1").value,mo1=document.getElementById("model1").value,y1=document.getElementById("year1").value;
+            const m2=document.getElementById("make2").value,mo2=document.getElementById("model2").value,y2=document.getElementById("year2").value;
+            const c=document.getElementById("compare-results"); c.classList.remove("hidden"); c.innerHTML='<div class="loading">Comparing...</div>';
+            const data = await (await fetch(`/api/compare?cars=${m1}/${mo1}/${y1},${m2}/${mo2}/${y2}`)).json();
+            c.innerHTML = renderAlignedComparison(data); c.scrollIntoView({behavior:"smooth"});
+            const sb=document.getElementById("share-link"), su=document.getElementById("share-url");
+            su.value=`${window.location.origin}/static/compare.html?car1=${m1}/${mo1}/${y1}&car2=${m2}/${mo2}/${y2}`; sb.style.display="block";
         }
     </script>
 </body>

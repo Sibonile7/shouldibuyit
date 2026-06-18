@@ -9,69 +9,34 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
-    <nav>
-        <div class="nav-inner">
-            <a href="/" class="logo">German car reliability</a>
-            <div class="nav-links">
-                <a href="/" class="active">Search</a>
-                <a href="/static/compare.html">Compare</a>
-                <a href="/static/top.html">Top reliable</a>
-            </div>
-        </div>
-    </nav>
-
+    <nav><div class="nav-inner"><a href="/" class="logo">german car reliability</a><div class="nav-links"><a href="/" class="active">Search</a><a href="/static/compare.html">Compare</a><a href="/static/top.html">Top ranked</a></div></div></nav>
     <main>
         <section class="hero">
             <h1>Know what breaks before you buy.</h1>
             <p class="subtitle">Real complaint data from the NHTSA government database. Not opinions. Not AI guesses. Evidence.</p>
         </section>
-
-        <section class="search-section">
-            <div class="search-box">
-                <div class="search-row">
-                    <div class="field">
-                        <label for="make">Make</label>
-                        <select id="make" onchange="loadModels()">
-                            <option value="">Select make</option>
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label for="model">Model</label>
-                        <select id="model" onchange="loadYears()" disabled>
-                            <option value="">Select model</option>
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label for="year">Year</label>
-                        <select id="year" disabled>
-                            <option value="">Select year</option>
-                        </select>
-                    </div>
-                    <button id="search-btn" onclick="searchCar()" disabled>Search</button>
-                </div>
-            </div>
-        </section>
-
+        <section class="search-section"><div class="search-box"><div class="search-row">
+            <div class="field"><label for="make">Make</label><select id="make" onchange="loadModels()"><option value="">Select make</option></select></div>
+            <div class="field"><label for="model">Model</label><select id="model" onchange="loadYears()" disabled><option value="">Select model</option></select></div>
+            <div class="field"><label for="year">Year</label><select id="year" disabled><option value="">Select year</option></select></div>
+            <button id="search-btn" onclick="searchCar()" disabled>Search</button>
+        </div></div></section>
         <section id="results" class="results hidden"></section>
-
-        <section id="stats-section" class="stats-section">
-            <div id="stats">Loading database stats...</div>
-        </section>
+        <section class="stats-section"><div id="stats">Loading...</div></section>
     </main>
-
     <footer>
-        <p>Data from <a href="https://www.nhtsa.gov" target="_blank">NHTSA</a> (National Highway Traffic Safety Administration). Public domain, updated daily.</p>
+        <div class="data-limitations">
+            <div class="samples-title">Data limitations</div>
+            Based on US NHTSA data. Complaints are owner-reported and not independently verified. Not adjusted for number of cars sold. Does not include maintenance costs or repair bills. German and European market versions may differ. Always inspect the exact car before buying.
+        </div>
+        <div class="footer-source">Source: NHTSA (National Highway Traffic Safety Administration). Public domain. Data last updated: May 2025.</div>
     </footer>
-
     <script src="/static/app.js"></script>
     <script>
-        // Auto-search if URL has ?make=...&model=...&year=...
-        // (used by Top Reliable page to deep-link)
         window.addEventListener("DOMContentLoaded", async () => {
             const params = new URLSearchParams(window.location.search);
             const m = params.get("make"), mo = params.get("model"), y = params.get("year");
             if (m && mo && y) {
-                // Wait a moment for dropdowns to populate, then set and search
                 setTimeout(async () => {
                     document.getElementById("make").value = m;
                     await loadModels();

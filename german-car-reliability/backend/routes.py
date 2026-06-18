@@ -1,15 +1,5 @@
 """
 API routes for the German car reliability dashboard.
-
-Endpoints:
-    GET /api/car/{make}/{model}/{year}              - Complaint summary + recalls
-    GET /api/car/{make}/{model}/{year}/component/{component}  - Filter by component
-    GET /api/compare                                - Side-by-side
-    GET /api/top                                    - NEW: Ranked top reliable cars
-    GET /api/makes                                  - List makes
-    GET /api/models/{make}                          - List models
-    GET /api/years/{make}/{model}                   - List years
-    GET /api/stats                                  - Database stats
 """
 
 from fastapi import APIRouter, HTTPException, Query
@@ -22,6 +12,7 @@ from database import (
     get_complaints_by_component,
     get_comparison,
     get_top_reliable_cars,
+    get_year_trend,
     get_available_makes,
     get_available_models,
     get_available_years,
@@ -33,62 +24,53 @@ router = APIRouter(prefix="/api")
 
 @router.get("/car/{make}/{model}/{year}")
 def car_summary(make: str, model: str, year: int):
-    """Get complaint summary and recalls for a specific car."""
     result = get_car_summary(make, model, year)
     if result is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No data found for {make} {model} {year}"
-        )
+        raise HTTPException(status_code=404, detail=f"No data found for {make} {model} {year}")
     return result
 
 
 @router.get("/car/{make}/{model}/{year}/component/{component}")
 def complaints_by_component(
-    make: str,
-    model: str,
-    year: int,
-    component: str,
+    make: str, model: str, year: int, component: str,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
-    """Get complaints filtered by component."""
-    result = get_complaints_by_component(
-        make, model, year, component, limit=limit, offset=offset
-    )
+    result = get_complaints_by_component(make, model, year, component, limit=limit, offset=offset)
     if result["total_matching"] == 0:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No {component} complaints found for {make} {model} {year}"
-        )
+        raise HTTPException(status_code=404, detail=f"No {component} complaints found")
     return result
+
+
+@router.get("/trend/{make}/{model}")
+def year_trend(make: str, model: str):
+    """
+    Get complaint counts per year for a model.
+    Used for the year-over-year trend chart.
+    """
+    trend = get_year_trend(make, model)
+    if not trend:
+        raise HTTPException(status_code=404, detail=f"No data found for {make} {model}")
+    return trend
 
 
 @router.get("/compare")
 def compare_cars(cars: str = Query(...)):
-    """Compare multiple cars side by side."""
     car_list = []
     for car_str in cars.split(","):
         parts = car_str.strip().split("/")
         if len(parts) != 3:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid car format: '{car_str}'. Use MAKE/MODEL/YEAR"
-            )
+            raise HTTPException(status_code=400, detail=f"Invalid format: '{car_str}'")
         make, model, year = parts
         try:
             year = int(year)
         except ValueError:
-            raise HTTPException(
-                status_code=400, detail=f"Invalid year: '{year}'"
-            )
+            raise HTTPException(status_code=400, detail=f"Invalid year: '{year}'")
         car_list.append((make, model, year))
-
     if len(car_list) < 2:
         raise HTTPException(status_code=400, detail="Need at least 2 cars")
     if len(car_list) > 4:
         raise HTTPException(status_code=400, detail="Maximum 4 cars")
-
     results = get_comparison(car_list)
     if not results:
         raise HTTPException(status_code=404, detail="No data found")
@@ -106,43 +88,26 @@ def top_reliable_cars(
     year_max: int = Query(2024, ge=2010, le=2024),
     min_complaints: int = Query(5, ge=1),
     limit: int = Query(10, ge=1, le=50),
+    make: str = Query("ALL"),
 ):
-    """
-    Return top N most reliable cars based on weighted scoring.
-
-    Default weights prioritize safety (fires, crashes, injuries weighted higher
-    than raw complaint count). User can adjust via query parameters to focus on
-    different criteria (e.g. set w_complaints=10 for "fewest total issues").
-    """
     if year_min > year_max:
-        raise HTTPException(
-            status_code=400, detail="year_min must be ≤ year_max"
-        )
-
+        raise HTTPException(status_code=400, detail="year_min must be <= year_max")
     results = get_top_reliable_cars(
-        w_complaints=w_complaints,
-        w_crashes=w_crashes,
-        w_fires=w_fires,
-        w_injuries=w_injuries,
-        w_recalls=w_recalls,
-        year_min=year_min,
-        year_max=year_max,
-        min_complaints=min_complaints,
-        limit=limit,
+        w_complaints=w_complaints, w_crashes=w_crashes,
+        w_fires=w_fires, w_injuries=w_injuries, w_recalls=w_recalls,
+        year_min=year_min, year_max=year_max,
+        min_complaints=min_complaints, limit=limit,
+        make_filter=make,
     )
     return {
         "count": len(results),
         "weights": {
-            "complaints": w_complaints,
-            "crashes": w_crashes,
-            "fires": w_fires,
-            "injuries": w_injuries,
-            "recalls": w_recalls,
+            "complaints": w_complaints, "crashes": w_crashes,
+            "fires": w_fires, "injuries": w_injuries, "recalls": w_recalls,
         },
         "filters": {
-            "year_min": year_min,
-            "year_max": year_max,
-            "min_complaints": min_complaints,
+            "year_min": year_min, "year_max": year_max,
+            "min_complaints": min_complaints, "make": make,
         },
         "cars": results,
     }
@@ -165,7 +130,7 @@ def list_models(make: str):
 def list_years(make: str, model: str):
     years = get_available_years(make, model)
     if not years:
-        raise HTTPException(status_code=404, detail=f"No years")
+        raise HTTPException(status_code=404, detail="No years found")
     return years
 
 
