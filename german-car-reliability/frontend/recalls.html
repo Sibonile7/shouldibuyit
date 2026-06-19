@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recalls - German Car Reliability</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav><div class="nav-inner"><a href="/" class="logo">german car reliability</a><div class="nav-links"><a href="/">Search</a><a href="/static/compare.html">Compare</a><a href="/static/top.html">Top ranked</a></div></div></nav>
+    <main>
+        <div id="back-link" class="back-link"></div>
+        <div id="page-header" class="page-detail-header"></div>
+        <div id="recalls-list" class="complaints-page-list">
+            <div class="loading">Loading recalls...</div>
+        </div>
+    </main>
+    <footer>
+        <div class="data-limitations">
+            <div class="samples-title">Data limitations</div>
+            Based on US NHTSA data. Complaints are owner-reported and not independently verified. Not adjusted for number of cars sold. Does not include maintenance costs or repair bills. German and European market versions may differ. Always inspect the exact car before buying.
+        </div>
+        <div class="footer-source">Source: NHTSA. Public domain. Data last updated: May 2025.</div>
+    </footer>
+    <script src="/static/app.js"></script>
+    <script>
+        async function loadRecalls() {
+            const p = new URLSearchParams(window.location.search);
+            const make = p.get("make"), model = p.get("model"), year = p.get("year");
+
+            document.getElementById("back-link").innerHTML =
+                `<a href="/?make=${make}&model=${model}&year=${year}">← Back to ${year} ${esc(make)} ${esc(model)}</a>`;
+
+            const res = await fetch(`/api/car/${make}/${model}/${year}`);
+            if (!res.ok) {
+                document.getElementById("recalls-list").innerHTML = '<div class="loading">No data found.</div>';
+                return;
+            }
+
+            const data = await res.json();
+            const recalls = data.recalls || [];
+
+            document.getElementById("page-header").innerHTML = `
+                <h1 class="detail-title">${year} ${esc(make)} ${esc(model)}</h1>
+                <div class="detail-subtitle">${recalls.length} official recall${recalls.length === 1 ? '' : 's'}</div>
+                <div class="section-explainer">A recall means the manufacturer confirmed a safety defect. The fix is free at any authorized dealer. If buying used, ask if these were completed.</div>
+            `;
+
+            if (recalls.length === 0) {
+                document.getElementById("recalls-list").innerHTML = '<div class="no-recalls">No recalls found for this car.</div>';
+                return;
+            }
+
+            document.getElementById("recalls-list").innerHTML = recalls.map(r => {
+                const flags = [];
+                if (r.park_it) flags.push('<span class="recall-flag flag-severe">STOP DRIVING</span>');
+                if (r.park_outside) flags.push('<span class="recall-flag flag-severe">DO NOT GARAGE</span>');
+                if (r.ota_update) flags.push('<span class="recall-flag flag-mild">SOFTWARE FIX AVAILABLE</span>');
+
+                return `<div class="recall-card">
+                    <div class="recall-header">
+                        <div class="recall-campaign">Campaign ${esc(r.campaign_number)}</div>
+                        ${r.report_date ? `<div class="recall-date">${esc(r.report_date)}</div>` : ''}
+                    </div>
+                    ${flags.length ? `<div class="recall-flags">${flags.join('')}</div>` : ''}
+                    <div class="recall-component">${esc(r.component) || 'Unknown'}</div>
+                    <div class="recall-body"><div class="recall-section-label">What's wrong</div><div class="recall-text">${esc(r.summary) || 'No description.'}</div></div>
+                    ${r.consequence ? `<div class="recall-body"><div class="recall-section-label">Why it's dangerous</div><div class="recall-text">${esc(r.consequence)}</div></div>` : ''}
+                    ${r.remedy ? `<div class="recall-body"><div class="recall-section-label">How it gets fixed (free)</div><div class="recall-text">${esc(r.remedy)}</div></div>` : ''}
+                </div>`;
+            }).join('');
+
+            document.getElementById("recalls-list").innerHTML += `
+                <div class="vin-check">Before buying, check the exact VIN for open recalls at <a href="https://www.nhtsa.gov/recalls" target="_blank">nhtsa.gov/recalls</a></div>
+            `;
+        }
+
+        loadRecalls();
+    </script>
+</body>
+</html>

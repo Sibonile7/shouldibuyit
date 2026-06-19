@@ -21,7 +21,7 @@
     <footer>
         <div class="data-limitations">
             <div class="samples-title">Data limitations</div>
-            Based on US NHTSA data. Complaints are owner-reported and not independently verified. Not adjusted for number of cars sold. Does not include maintenance costs or repair bills. German and European market versions may differ. Always inspect the exact car before buying.
+            Based on US NHTSA data. Complaints are owner-reported and not independently verified. Not adjusted for number of cars sold.
         </div>
         <div class="footer-source">Source: NHTSA. Public domain. Data last updated: May 2025.</div>
     </footer>
@@ -41,22 +41,16 @@
         }
 
         function buildUrl(params, page) {
-            const p = new URLSearchParams({
-                make: params.make, model: params.model, year: params.year,
-                component: params.component, page: page,
-            });
-            return `/static/complaints.html?${p}`;
+            return `/static/complaints.html?make=${params.make}&model=${params.model}&year=${params.year}&component=${params.component}&page=${page}`;
         }
 
         async function loadPage() {
             const params = getParams();
             const offset = (params.page - 1) * PER_PAGE;
 
-            // Back link
             document.getElementById("back-link").innerHTML =
                 `<a href="/?make=${params.make}&model=${params.model}&year=${params.year}">← Back to ${params.year} ${esc(params.make)} ${esc(params.model)}</a>`;
 
-            // Fetch data
             const url = `/api/car/${params.make}/${params.model}/${params.year}/component/${params.component}?limit=${PER_PAGE}&offset=${offset}`;
             const res = await fetch(url);
 
@@ -67,66 +61,82 @@
 
             const data = await res.json();
             const totalPages = Math.ceil(data.total_matching / PER_PAGE);
+            const componentLabel = params.component === "ALL" ? "All complaints" : esc(params.component) + " complaints";
 
-            // Header
-            const componentLabel = params.component === "ALL" ? "All complaints" : `${esc(params.component)} complaints`;
             document.getElementById("page-header").innerHTML = `
                 <h1 class="detail-title">${params.year} ${esc(params.make)} ${esc(params.model)}</h1>
-                <div class="detail-subtitle">${componentLabel}: ${data.total_matching} total, showing page ${params.page} of ${totalPages}</div>
+                <div class="detail-subtitle">${componentLabel}: ${data.total_matching} total</div>
                 ${params.component !== "ALL" ? `<a href="${buildUrl({...params, component: 'ALL'}, 1)}" class="filter-reset-link">Show all complaints</a>` : ''}
             `;
 
-            // Complaints list
             const activeFilter = params.component !== "ALL" ? params.component : null;
             document.getElementById("complaints-list").innerHTML = data.complaints.map(c => {
                 const tags = [];
                 if (c.crash) tags.push('<span class="sample-crash">CRASH</span>');
                 if (c.fire) tags.push('<span class="sample-crash">FIRE</span>');
                 if (c.injuries && c.injuries > 0) tags.push(`<span class="sample-crash">${c.injuries} INJ</span>`);
-
-                const componentPills = splitComponents(c.component).map(part => {
-                    const cleaned = cleanComponent(part);
-                    const isMatch = activeFilter && cleaned === activeFilter;
-                    return `<span class="${isMatch ? 'sample-tag sample-tag-match' : 'sample-tag'}">${esc(part)}</span>`;
+                const pills = splitComponents(c.component).map(part => {
+                    const match = activeFilter && cleanComponent(part) === activeFilter;
+                    return `<span class="${match ? 'sample-tag sample-tag-match' : 'sample-tag'}">${esc(part)}</span>`;
                 }).join('');
-
-                return `<div class="sample">${esc(c.summary)}<div class="sample-meta">${tags.join('')}${componentPills}${c.date_filed ? `<span class="sample-tag">${esc(c.date_filed)}</span>` : ''}</div></div>`;
+                return `<div class="sample">${esc(c.summary)}<div class="sample-meta">${tags.join('')}${pills}${c.date_filed ? `<span class="sample-tag">${esc(c.date_filed)}</span>` : ''}</div></div>`;
             }).join('');
 
-            // Pagination
+            // Build LinkedIn-style pagination
             let pagHTML = '';
             if (totalPages > 1) {
+                // Previous
                 if (params.page > 1) {
-                    pagHTML += `<a href="${buildUrl(params, params.page - 1)}" class="page-btn">Previous</a>`;
+                    pagHTML += `<a href="${buildUrl(params, params.page - 1)}" class="pag-prev">‹ Previous</a>`;
                 }
 
-                const startPage = Math.max(1, params.page - 3);
-                const endPage = Math.min(totalPages, params.page + 3);
+                pagHTML += '<div class="pag-numbers">';
 
-                if (startPage > 1) {
-                    pagHTML += `<a href="${buildUrl(params, 1)}" class="page-btn">1</a>`;
-                    if (startPage > 2) pagHTML += `<span class="page-dots">...</span>`;
+                // Always show page 1
+                if (params.page === 1) {
+                    pagHTML += `<span class="pag-num pag-active">1</span>`;
+                } else {
+                    pagHTML += `<a href="${buildUrl(params, 1)}" class="pag-num">1</a>`;
                 }
 
-                for (let i = startPage; i <= endPage; i++) {
+                // Dots after 1 if needed
+                if (params.page > 4) {
+                    pagHTML += `<span class="pag-dots">...</span>`;
+                }
+
+                // Middle pages
+                const start = Math.max(2, params.page - 1);
+                const end = Math.min(totalPages - 1, params.page + 1);
+                for (let i = start; i <= end; i++) {
                     if (i === params.page) {
-                        pagHTML += `<span class="page-btn page-active">${i}</span>`;
+                        pagHTML += `<span class="pag-num pag-active">${i}</span>`;
                     } else {
-                        pagHTML += `<a href="${buildUrl(params, i)}" class="page-btn">${i}</a>`;
+                        pagHTML += `<a href="${buildUrl(params, i)}" class="pag-num">${i}</a>`;
                     }
                 }
 
-                if (endPage < totalPages) {
-                    if (endPage < totalPages - 1) pagHTML += `<span class="page-dots">...</span>`;
-                    pagHTML += `<a href="${buildUrl(params, totalPages)}" class="page-btn">${totalPages}</a>`;
+                // Dots before last if needed
+                if (params.page < totalPages - 3) {
+                    pagHTML += `<span class="pag-dots">...</span>`;
                 }
 
+                // Always show last page
+                if (totalPages > 1) {
+                    if (params.page === totalPages) {
+                        pagHTML += `<span class="pag-num pag-active">${totalPages}</span>`;
+                    } else {
+                        pagHTML += `<a href="${buildUrl(params, totalPages)}" class="pag-num">${totalPages}</a>`;
+                    }
+                }
+
+                pagHTML += '</div>';
+
+                // Next
                 if (params.page < totalPages) {
-                    pagHTML += `<a href="${buildUrl(params, params.page + 1)}" class="page-btn">Next</a>`;
+                    pagHTML += `<a href="${buildUrl(params, params.page + 1)}" class="pag-next">Next ›</a>`;
                 }
             }
             document.getElementById("pagination").innerHTML = pagHTML;
-
             window.scrollTo(0, 0);
         }
 
