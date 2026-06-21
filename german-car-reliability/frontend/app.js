@@ -7,6 +7,11 @@ function esc(str) {
         .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+function sentenceCase(str) {
+    if (!str) return '';
+    return str.toLowerCase().replace(/(^\s*|[.!?]\s+)([a-z])/g, (_, p1, p2) => p1 + p2.toUpperCase());
+}
+
 const COMPONENT_CLEANUP = {
     "ENGINE AND ENGINE COOLING": "ENGINE", "SERVICE BRAKES": "BRAKES",
     "SERVICE BRAKES, HYDRAULIC": "BRAKES", "FUEL SYSTEM, GASOLINE": "FUEL SYSTEM",
@@ -78,7 +83,7 @@ function renderSampleHTML(s, af) {
     if (s.crash) tags.push('<span class="sample-crash">CRASH</span>');
     if (s.fire) tags.push('<span class="sample-crash">FIRE</span>');
     if (s.injuries && s.injuries > 0) tags.push(`<span class="sample-crash">${s.injuries} INJ</span>`);
-    return `<div class="sample">${esc(s.summary)}<div class="sample-meta">${tags.join('')}${renderComponentTags(s.component, af)}${s.date_filed ? `<span class="sample-tag">${esc(s.date_filed)}</span>` : ''}</div></div>`;
+    return `<div class="sample">${esc(sentenceCase(s.summary))}<div class="sample-meta">${tags.join('')}${renderComponentTags(s.component, af)}${s.date_filed ? `<span class="sample-tag">${esc(s.date_filed)}</span>` : ''}</div></div>`;
 }
 
 function renderVerdict(verdict) {

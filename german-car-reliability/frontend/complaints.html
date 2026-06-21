@@ -96,7 +96,7 @@
                     const match = activeFilter && cleanComponent(part) === activeFilter;
                     return `<span class="${match ? 'sample-tag sample-tag-match' : 'sample-tag'}">${esc(part)}</span>`;
                 }).join('');
-                return `<div class="sample">${esc(c.summary)}<div class="sample-meta">${tags.join('')}${pills}${c.date_filed ? `<span class="sample-tag">${esc(c.date_filed)}</span>` : ''}</div></div>`;
+                return `<div class="sample">${esc(sentenceCase(c.summary))}<div class="sample-meta">${tags.join('')}${pills}${c.date_filed ? `<span class="sample-tag">${esc(c.date_filed)}</span>` : ''}</div></div>`;
             }).join('');
 
             // LinkedIn-style pagination
