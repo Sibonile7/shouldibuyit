@@ -1,6 +1,5 @@
 /*
  * German Car Reliability - Frontend Logic
- * Car card is a compact summary. "Load more" navigates to detail pages.
  */
 
 function esc(str) {
@@ -84,14 +83,13 @@ function renderSampleHTML(s, af) {
 
 function renderVerdict(verdict) {
     if (!verdict) return '';
-    const cls = `verdict-${verdict.verdict}`;
-    return `<div class="verdict-box ${cls}"><div class="verdict-label">${esc(verdict.label)}</div><div class="verdict-reasons">${verdict.reasons.map(r => `<span class="verdict-reason">${esc(r)}</span>`).join('')}</div></div>`;
+    return `<div class="verdict-box verdict-${verdict.verdict}"><div class="verdict-label">${esc(verdict.label)}</div><div class="verdict-reasons">${verdict.reasons.map(r => `<span class="verdict-reason">${esc(r)}</span>`).join('')}</div></div>`;
 }
 
 function renderWorstYearWarning(wy, currentYear) {
     if (!wy) return '';
     const isCurrent = wy.year === currentYear;
-    return `<div class="worst-year-warning ${isCurrent ? 'worst-year-current' : ''}"><div class="worst-year-title">${isCurrent ? 'You are viewing the worst model year' : 'Worst year to avoid: ' + wy.year}</div><div class="worst-year-detail">The ${wy.year} model has ${wy.complaints} complaints, ${wy.ratio}x higher than the average of other years (${wy.avg_other_years}). ${isCurrent ? 'Consider a different model year.' : ''}</div></div>`;
+    return `<div class="worst-year-warning ${isCurrent ? 'worst-year-current' : ''}"><div class="worst-year-title">${isCurrent ? 'You are viewing the worst model year' : 'Worst year to avoid: ' + wy.year}</div><div class="worst-year-detail">The ${wy.year} model has ${wy.complaints} complaints, ${wy.ratio}x higher than average (${wy.avg_other_years}). ${isCurrent ? 'Consider a different model year.' : ''}</div></div>`;
 }
 
 async function loadTrendChart(make, model, currentYear) {
@@ -102,18 +100,16 @@ async function loadTrendChart(make, model, currentYear) {
     const trend = await res.json();
     if (trend.length < 2) { c.innerHTML = ''; return; }
     const mx = Math.max(...trend.map(t => t.complaints), 1);
-    const bars = trend.map(t => {
+    c.innerHTML = `<div class="trend-section"><div class="samples-title">Complaints by model year</div><div class="section-explainer">Taller bar = more complaints. Highlighted = year you searched.</div><div class="trend-chart">${trend.map(t => {
         const h = Math.max((t.complaints / mx) * 120, 2);
         const active = t.year === currentYear;
         let bc = 'trend-bar';
         if (active) bc += ' trend-bar-active';
         else if (t.crashes > 0 || t.fires > 0) bc += ' trend-bar-severity';
         return `<div class="trend-col"><div class="trend-count">${t.complaints}</div><div class="${bc}" style="height:${h}px;"></div><div class="trend-year ${active ? 'trend-year-active' : ''}">${t.year}</div></div>`;
-    }).join('');
-    c.innerHTML = `<div class="trend-section"><div class="samples-title">Complaints by model year</div><div class="section-explainer">Taller bar = more complaints. Highlighted = year you searched.</div><div class="trend-chart">${bars}</div></div>`;
+    }).join('')}</div></div>`;
 }
 
-// === MINI RECALL CARD ===
 function renderMiniRecall(r) {
     const flags = [];
     if (r.park_it) flags.push('<span class="recall-flag flag-severe">STOP DRIVING</span>');
@@ -122,28 +118,43 @@ function renderMiniRecall(r) {
     return `<div class="recall-card-mini"><div class="recall-campaign">${esc(r.campaign_number)}</div>${flags.length ? `<span class="recall-mini-flags">${flags.join('')}</span>` : ''}<div class="recall-component-mini">${esc(r.component) || 'Unknown'}</div></div>`;
 }
 
-// === CAR CARD (compact summary, "Load more" navigates to detail pages) ===
+// === HELPER: build complaints page URL with optional compare context ===
+function complaintsUrl(car, component, compareContext) {
+    let url = `/static/complaints.html?make=${car.make}&model=${car.model}&year=${car.year}&component=${component || 'ALL'}&page=1`;
+    if (compareContext) {
+        url += `&car1=${compareContext.car1}&car2=${compareContext.car2}`;
+    }
+    return url;
+}
+
+function recallsUrl(car, compareContext) {
+    let url = `/static/recalls.html?make=${car.make}&model=${car.model}&year=${car.year}`;
+    if (compareContext) {
+        url += `?car1=${compareContext.car1}&car2=${compareContext.car2}`;
+    }
+    return url;
+}
+
+// === CAR CARD (single view, no compare context) ===
 function renderCarCard(car, mode) {
     const cardId = `card-${car.make}-${car.model}-${car.year}`.replace(/\s+/g, "_");
     const maxCount = car.top_issues.length > 0 ? car.top_issues[0].count : 1;
     const total = car.total_complaints || 1;
     const rc = (car.recalls || []).length;
 
-    // Bar chart: each bar links to complaints page filtered by component
     let issuesHTML = "";
     car.top_issues.forEach((issue, i) => {
         const pct = (issue.count / maxCount) * 100;
         const percent = Math.round((issue.count / total) * 100);
         const sc = esc(issue.component);
-        const link = `/static/complaints.html?make=${car.make}&model=${car.model}&year=${car.year}&component=${issue.component}`;
+        const link = complaintsUrl(car, issue.component, null);
         issuesHTML += `<a href="${link}" class="issue-row clickable" title="View all ${sc} complaints"><div class="issue-name">${sc}</div><div class="issue-bar-track"><div class="issue-bar-fill bar-${i+1}" style="width:${pct}%"></div></div><div class="issue-count">${issue.count} <span class="issue-pct">(${percent}%)</span></div></a>`;
     });
 
     const samplesHTML = car.sample_complaints.map(s => renderSampleHTML(s, null)).join('');
     const remaining = car.total_complaints - car.sample_complaints.length;
-    const complaintsLink = `/static/complaints.html?make=${car.make}&model=${car.model}&year=${car.year}&component=ALL`;
-    const recallsLink = `/static/recalls.html?make=${car.make}&model=${car.model}&year=${car.year}`;
-
+    const cLink = complaintsUrl(car, 'ALL', null);
+    const rLink = `/static/recalls.html?make=${car.make}&model=${car.model}&year=${car.year}`;
     const previewRecalls = (car.recalls || []).slice(0, 2);
 
     return `
@@ -165,14 +176,14 @@ function renderCarCard(car, mode) {
                 <div class="samples-header"><div class="samples-title">Owner complaints</div></div>
                 <div class="section-explainer">Reports filed by real car owners to the US government (NHTSA).</div>
                 <div class="samples-list">${samplesHTML}</div>
-                ${remaining > 0 ? `<a href="${complaintsLink}" class="load-more-btn">Load more (${remaining} remaining)</a>` : ''}
+                ${remaining > 0 ? `<a href="${cLink}" class="load-more-btn">Load more (${remaining} remaining)</a>` : ''}
             </div>
             <div class="recalls-section">
                 <div class="samples-title">Official recalls${rc > 0 ? ` (${rc})` : ''}</div>
                 <div class="section-explainer">A recall means the manufacturer confirmed a safety defect. The fix is free at any dealer.</div>
-                ${rc === 0 ? '<div class="no-recalls">No recalls found for this car.</div>' :
+                ${rc === 0 ? '<div class="no-recalls">No recalls found.</div>' :
                     previewRecalls.map(renderMiniRecall).join('') +
-                    `<a href="${recallsLink}" class="load-more-btn">${rc > 2 ? `Load more (${rc - 2} remaining)` : 'View recall details'}</a>`
+                    `<a href="${rLink}" class="load-more-btn">${rc > 2 ? `Load more (${rc - 2} remaining)` : 'View recall details'}</a>`
                 }
             </div>
             <div class="vin-check">Before buying, check the exact VIN at <a href="https://www.nhtsa.gov/recalls" target="_blank">nhtsa.gov/recalls</a></div>
@@ -180,7 +191,7 @@ function renderCarCard(car, mode) {
     `;
 }
 
-// === ALIGNED COMPARISON ===
+// === ALIGNED COMPARISON (passes car1/car2 context to complaint links) ===
 function renderAlignedComparison(cars) {
     if (cars.length !== 2) return cars.map(c => renderCarCard(c, "compare")).join('');
     const car1 = cars[0], car2 = cars[1];
@@ -191,6 +202,12 @@ function renderAlignedComparison(cars) {
     const allC = [...new Set([...Object.keys(issues1), ...Object.keys(issues2)])];
     allC.sort((a, b) => Math.max(issues1[b]||0, issues2[b]||0) - Math.max(issues1[a]||0, issues2[a]||0));
     const gMax = Math.max(...allC.map(c => Math.max(issues1[c]||0, issues2[c]||0)), 1);
+
+    // Compare context so back links work
+    const ctx = {
+        car1: `${car1.make}/${car1.model}/${car1.year}`,
+        car2: `${car2.make}/${car2.model}/${car2.year}`,
+    };
 
     const rows = allC.map((comp, i) => {
         const c1=issues1[comp]||0, c2=issues2[comp]||0;
@@ -212,8 +229,8 @@ function renderAlignedComparison(cars) {
         </div>`;
 
     const detail = (car) => {
-        const cLink = `/static/complaints.html?make=${car.make}&model=${car.model}&year=${car.year}&component=ALL`;
-        const rLink = `/static/recalls.html?make=${car.make}&model=${car.model}&year=${car.year}`;
+        const cLink = complaintsUrl(car, 'ALL', ctx);
+        const rLink = `/static/recalls.html?make=${car.make}&model=${car.model}&year=${car.year}&car1=${ctx.car1}&car2=${ctx.car2}`;
         const rc = (car.recalls||[]).length;
         const remaining = car.total_complaints - car.sample_complaints.length;
         return `

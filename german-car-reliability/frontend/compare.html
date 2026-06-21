@@ -3,134 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Complaints - German Car Reliability</title>
+    <title>Compare Cars - German Car Reliability</title>
     <link rel="stylesheet" href="/static/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Bangers&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
-    <nav><div class="nav-inner"><a href="/" class="logo">german car reliability</a><div class="nav-links"><a href="/">Search</a><a href="/static/compare.html">Compare</a><a href="/static/top.html">Top ranked</a></div></div></nav>
+    <nav><div class="nav-inner"><a href="/" class="logo">german car reliability</a><div class="nav-links"><a href="/">Search</a><a href="/static/compare.html" class="active">Compare</a><a href="/static/top.html">Top ranked</a></div></div></nav>
     <main>
-        <div id="back-link" class="back-link"></div>
-        <div id="page-header" class="page-detail-header"></div>
-        <div id="complaints-list" class="complaints-page-list">
-            <div class="loading">Loading complaints...</div>
+        <section class="hero"><h1>Compare side by side.</h1><p class="subtitle">Same problems, same row. See which car has more of each issue at a glance.</p></section>
+        <section class="search-section"><div class="search-box">
+            <h3 class="car-label">Car 1</h3>
+            <div class="search-row">
+                <div class="field"><label for="make1">Make</label><select id="make1" onchange="loadModelsFor(1)"><option value="">Select make</option></select></div>
+                <div class="field"><label for="model1">Model</label><select id="model1" onchange="loadYearsFor(1)" disabled><option value="">Select model</option></select></div>
+                <div class="field"><label for="year1">Year</label><select id="year1" disabled><option value="">Select year</option></select></div>
+            </div>
+            <h3 class="car-label">Car 2</h3>
+            <div class="search-row">
+                <div class="field"><label for="make2">Make</label><select id="make2" onchange="loadModelsFor(2)"><option value="">Select make</option></select></div>
+                <div class="field"><label for="model2">Model</label><select id="model2" onchange="loadYearsFor(2)" disabled><option value="">Select model</option></select></div>
+                <div class="field"><label for="year2">Year</label><select id="year2" disabled><option value="">Select year</option></select></div>
+            </div>
+            <button id="compare-btn" onclick="compareCars()" disabled>Compare</button>
+        </div></section>
+        <div id="share-link" class="share-link-box" style="display:none;">
+            <div class="section-explainer">Share this comparison:</div>
+            <input type="text" id="share-url" class="share-input" readonly onclick="this.select()">
         </div>
-        <div id="pagination" class="pagination"></div>
+        <section id="compare-results" class="results hidden"></section>
     </main>
     <footer>
         <div class="data-limitations">
             <div class="samples-title">Data limitations</div>
             Based on US NHTSA data. Complaints are owner-reported and not independently verified. Not adjusted for number of cars sold. Does not include maintenance costs or repair bills. German and European market versions may differ. Always inspect the exact car before buying.
         </div>
-        <div class="footer-source">Source: NHTSA. Public domain. Data last updated: May 2025.</div>
+        <div class="footer-source">Source: NHTSA (National Highway Traffic Safety Administration). Public domain. Data last updated: May 2025.</div>
     </footer>
     <script src="/static/app.js"></script>
     <script>
-        const PER_PAGE = 10;
-
-        function getParams() {
-            const p = new URLSearchParams(window.location.search);
-            return {
-                make: p.get("make") || "",
-                model: p.get("model") || "",
-                year: p.get("year") || "",
-                component: p.get("component") || "ALL",
-                page: parseInt(p.get("page")) || 1,
-            };
-        }
-
-        function buildUrl(params, page) {
-            const p = new URLSearchParams({
-                make: params.make, model: params.model, year: params.year,
-                component: params.component, page: page,
+        window.addEventListener("DOMContentLoaded", async () => {
+            const res = await fetch("/api/makes");
+            const makes = await res.json();
+            [1, 2].forEach(n => {
+                const sel = document.getElementById("make" + n);
+                makes.forEach(m => { const o = document.createElement("option"); o.value = m; o.textContent = m; sel.appendChild(o); });
             });
-            return `/static/complaints.html?${p}`;
-        }
-
-        async function loadPage() {
-            const params = getParams();
-            const offset = (params.page - 1) * PER_PAGE;
-
-            // Back link
-            document.getElementById("back-link").innerHTML =
-                `<a href="/?make=${params.make}&model=${params.model}&year=${params.year}">← Back to ${params.year} ${esc(params.make)} ${esc(params.model)}</a>`;
-
-            // Fetch data
-            const url = `/api/car/${params.make}/${params.model}/${params.year}/component/${params.component}?limit=${PER_PAGE}&offset=${offset}`;
-            const res = await fetch(url);
-
-            if (!res.ok) {
-                document.getElementById("complaints-list").innerHTML = '<div class="loading">No complaints found.</div>';
-                return;
-            }
-
-            const data = await res.json();
-            const totalPages = Math.ceil(data.total_matching / PER_PAGE);
-
-            // Header
-            const componentLabel = params.component === "ALL" ? "All complaints" : `${esc(params.component)} complaints`;
-            document.getElementById("page-header").innerHTML = `
-                <h1 class="detail-title">${params.year} ${esc(params.make)} ${esc(params.model)}</h1>
-                <div class="detail-subtitle">${componentLabel}: ${data.total_matching} total, showing page ${params.page} of ${totalPages}</div>
-                ${params.component !== "ALL" ? `<a href="${buildUrl({...params, component: 'ALL'}, 1)}" class="filter-reset-link">Show all complaints</a>` : ''}
-            `;
-
-            // Complaints list
-            const activeFilter = params.component !== "ALL" ? params.component : null;
-            document.getElementById("complaints-list").innerHTML = data.complaints.map(c => {
-                const tags = [];
-                if (c.crash) tags.push('<span class="sample-crash">CRASH</span>');
-                if (c.fire) tags.push('<span class="sample-crash">FIRE</span>');
-                if (c.injuries && c.injuries > 0) tags.push(`<span class="sample-crash">${c.injuries} INJ</span>`);
-
-                const componentPills = splitComponents(c.component).map(part => {
-                    const cleaned = cleanComponent(part);
-                    const isMatch = activeFilter && cleaned === activeFilter;
-                    return `<span class="${isMatch ? 'sample-tag sample-tag-match' : 'sample-tag'}">${esc(part)}</span>`;
-                }).join('');
-
-                return `<div class="sample">${esc(c.summary)}<div class="sample-meta">${tags.join('')}${componentPills}${c.date_filed ? `<span class="sample-tag">${esc(c.date_filed)}</span>` : ''}</div></div>`;
-            }).join('');
-
-            // Pagination
-            let pagHTML = '';
-            if (totalPages > 1) {
-                if (params.page > 1) {
-                    pagHTML += `<a href="${buildUrl(params, params.page - 1)}" class="page-btn">Previous</a>`;
-                }
-
-                const startPage = Math.max(1, params.page - 3);
-                const endPage = Math.min(totalPages, params.page + 3);
-
-                if (startPage > 1) {
-                    pagHTML += `<a href="${buildUrl(params, 1)}" class="page-btn">1</a>`;
-                    if (startPage > 2) pagHTML += `<span class="page-dots">...</span>`;
-                }
-
-                for (let i = startPage; i <= endPage; i++) {
-                    if (i === params.page) {
-                        pagHTML += `<span class="page-btn page-active">${i}</span>`;
-                    } else {
-                        pagHTML += `<a href="${buildUrl(params, i)}" class="page-btn">${i}</a>`;
-                    }
-                }
-
-                if (endPage < totalPages) {
-                    if (endPage < totalPages - 1) pagHTML += `<span class="page-dots">...</span>`;
-                    pagHTML += `<a href="${buildUrl(params, totalPages)}" class="page-btn">${totalPages}</a>`;
-                }
-
-                if (params.page < totalPages) {
-                    pagHTML += `<a href="${buildUrl(params, params.page + 1)}" class="page-btn">Next</a>`;
+            const params = new URLSearchParams(window.location.search);
+            const c1 = params.get("car1"), c2 = params.get("car2");
+            if (c1 && c2) {
+                const [m1,mo1,y1] = c1.split("/"), [m2,mo2,y2] = c2.split("/");
+                if (m1&&mo1&&y1&&m2&&mo2&&y2) {
+                    setTimeout(async () => {
+                        document.getElementById("make1").value=m1; await loadModelsFor(1);
+                        document.getElementById("model1").value=mo1; await loadYearsFor(1);
+                        document.getElementById("year1").value=y1;
+                        document.getElementById("make2").value=m2; await loadModelsFor(2);
+                        document.getElementById("model2").value=mo2; await loadYearsFor(2);
+                        document.getElementById("year2").value=y2;
+                        document.getElementById("compare-btn").disabled=false; compareCars();
+                    }, 400);
                 }
             }
-            document.getElementById("pagination").innerHTML = pagHTML;
-
-            window.scrollTo(0, 0);
+        });
+        async function loadModelsFor(n) {
+            const make=document.getElementById("make"+n).value, ms=document.getElementById("model"+n), ys=document.getElementById("year"+n);
+            ms.innerHTML='<option value="">Select model</option>'; ys.innerHTML='<option value="">Select year</option>'; ys.disabled=true;
+            if (!make) { ms.disabled=true; return; }
+            (await (await fetch("/api/models/"+make)).json()).forEach(m => { const o=document.createElement("option"); o.value=m; o.textContent=m; ms.appendChild(o); });
+            ms.disabled=false; checkCompareReady();
         }
-
-        loadPage();
+        async function loadYearsFor(n) {
+            const make=document.getElementById("make"+n).value, model=document.getElementById("model"+n).value, ys=document.getElementById("year"+n);
+            ys.innerHTML='<option value="">Select year</option>';
+            if (!model) { ys.disabled=true; return; }
+            (await (await fetch("/api/years/"+make+"/"+model)).json()).forEach(y => { const o=document.createElement("option"); o.value=y; o.textContent=y; ys.appendChild(o); });
+            ys.disabled=false; ys.onchange=checkCompareReady; checkCompareReady();
+        }
+        function checkCompareReady() { document.getElementById("compare-btn").disabled = !(document.getElementById("year1").value && document.getElementById("year2").value); }
+        async function compareCars() {
+            const m1=document.getElementById("make1").value,mo1=document.getElementById("model1").value,y1=document.getElementById("year1").value;
+            const m2=document.getElementById("make2").value,mo2=document.getElementById("model2").value,y2=document.getElementById("year2").value;
+            const c=document.getElementById("compare-results"); c.classList.remove("hidden"); c.innerHTML='<div class="loading">Comparing...</div>';
+            const data = await (await fetch(`/api/compare?cars=${m1}/${mo1}/${y1},${m2}/${mo2}/${y2}`)).json();
+            c.innerHTML = renderAlignedComparison(data); c.scrollIntoView({behavior:"smooth"});
+            const sb=document.getElementById("share-link"), su=document.getElementById("share-url");
+            su.value=`${window.location.origin}/static/compare.html?car1=${m1}/${mo1}/${y1}&car2=${m2}/${mo2}/${y2}`; sb.style.display="block";
+        }
     </script>
 </body>
 </html>
