@@ -29,9 +29,15 @@
         async function loadRecalls() {
             const p = new URLSearchParams(window.location.search);
             const make = p.get("make"), model = p.get("model"), year = p.get("year");
+            const car1 = p.get("car1"), car2 = p.get("car2");
 
-            document.getElementById("back-link").innerHTML =
-                `<a href="/?make=${make}&model=${model}&year=${year}">← Back to ${year} ${esc(make)} ${esc(model)}</a>`;
+            if (car1 && car2) {
+                document.getElementById("back-link").innerHTML =
+                    `<a href="/static/compare.html?car1=${car1}&car2=${car2}">← Back to comparison</a>`;
+            } else {
+                document.getElementById("back-link").innerHTML =
+                    `<a href="/?make=${make}&model=${model}&year=${year}">← Back to ${year} ${esc(make)} ${esc(model)}</a>`;
+            }
 
             const res = await fetch(`/api/car/${make}/${model}/${year}`);
             if (!res.ok) {

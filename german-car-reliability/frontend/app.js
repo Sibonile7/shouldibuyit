@@ -94,7 +94,7 @@ function renderVerdict(verdict) {
 function renderWorstYearWarning(wy, currentYear) {
     if (!wy) return '';
     const isCurrent = wy.year === currentYear;
-    return `<div class="worst-year-warning ${isCurrent ? 'worst-year-current' : ''}"><div class="worst-year-title">${isCurrent ? 'You are viewing the worst model year' : 'Worst year to avoid: ' + wy.year}</div><div class="worst-year-detail">The ${wy.year} model has ${wy.complaints} complaints, ${wy.ratio}x higher than average (${wy.avg_other_years}). ${isCurrent ? 'Consider a different model year.' : ''}</div></div>`;
+    return `<div class="worst-year-warning ${isCurrent ? 'worst-year-current' : ''}"><div class="worst-year-title">${isCurrent ? 'This is the highest complaint year for this model' : 'Highest complaint year: ' + wy.year}</div><div class="worst-year-detail">The ${wy.year} model has ${wy.complaints} complaints, ${wy.ratio}x higher than average (${wy.avg_other_years}).</div></div>`;
 }
 
 async function loadTrendChart(make, model, currentYear) {
@@ -135,7 +135,7 @@ function complaintsUrl(car, component, compareContext) {
 function recallsUrl(car, compareContext) {
     let url = `/static/recalls.html?make=${car.make}&model=${car.model}&year=${car.year}`;
     if (compareContext) {
-        url += `?car1=${compareContext.car1}&car2=${compareContext.car2}`;
+        url += `&car1=${compareContext.car1}&car2=${compareContext.car2}`;
     }
     return url;
 }
