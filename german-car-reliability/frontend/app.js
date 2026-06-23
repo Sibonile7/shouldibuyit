@@ -9,7 +9,13 @@ function esc(str) {
 
 function sentenceCase(str) {
     if (!str) return '';
-    return str.toLowerCase().replace(/(^\s*|[.!?]\s+)([a-z])/g, (_, p1, p2) => p1 + p2.toUpperCase());
+    const preserve = ['BMW', 'NHTSA', 'VW', 'ABS', 'TCS', 'DCT', 'CVT', 'AWD', 'MPH', 'RPM', 'PSI', 'OBD', 'ECU', 'PCM', 'TCM', 'SRS', 'EPS', 'DRL', 'LED', 'SUV', 'ESC', 'PCV', 'VIN'];
+    let result = str.toLowerCase().replace(/(^\s*|[.!?]\s+)([a-z])/g, (_, p1, p2) => p1 + p2.toUpperCase());
+    preserve.forEach(term => {
+        const regex = new RegExp('\\b' + term.toLowerCase() + '\\b', 'gi');
+        result = result.replace(regex, term);
+    });
+    return result;
 }
 
 const COMPONENT_CLEANUP = {
